@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080b13">
+  <title>FinCity · Zürich Demo</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="logo">FC</div><div><strong>FINCITY</strong><small>ANLEGEN · ERFOLG ZEIGEN · BESITZEN</small></div></div>
+    <div class="stats"><span>AKTIVE USER <b>13</b></span><span>GEBÄUDE <b>15</b></span><span>TROPHÄEN <b id="trophyCount">–</b></span></div>
+    <button id="portfolioTop" class="cta">▶ ANLEGER-MODUS</button>
+  </header>
+  <main id="map" class="map"></main>
+  <nav class="side-nav" aria-label="FinCity Hauptnavigation">
+    <button class="nav-btn active" data-view="city"><span class="ico">◇</span><b>STADT</b></button>
+    <button class="nav-btn" data-view="auctions"><span class="ico">⌁</span><b>AUKTIONEN</b></button>
+    <button class="nav-btn" data-view="active"><span class="ico">▤</span><b>AKTIVE</b></button>
+    <button class="nav-btn" data-view="portfolio"><span class="ico">◉</span><b>PORTFOLIO</b></button>
+    <button class="nav-btn" data-view="ranking"><span class="ico">🏆</span><b>RANGLISTE</b></button>
+    <button class="nav-btn" data-view="fees"><span class="ico">%</span><b>GEBÜHREN</b></button>
+    <button class="nav-btn" data-view="system"><span class="ico">⌘</span><b>SYSTEM</b></button>
+  </nav>
+  <section class="map-controls"><button id="satBtn" class="active">SATELLIT + 3D</button><button id="mapBtn">KARTE</button></section>
+  <section class="filters">
+    <button class="filter active" data-filter="all">ALLE OBJEKTE</button>
+    <button class="filter" data-filter="owned">MEINE GEBÄUDE</button>
+    <button class="filter" data-filter="active">AKTIVE GEBÄUDE</button>
+    <button class="filter" data-filter="auction">AUKTIONEN</button>
+    <button class="filter" data-filter="trophy">WAHRZEICHEN & TROPHÄEN</button>
+  </section>
+  <aside id="panel" class="panel" aria-live="polite"></aside>
+  <div class="legend"><span><i class="orange"></i>MEIN</span><span><i class="violet"></i>AKTIV</span><span><i class="cyan"></i>AUKTION</span><span><i class="gold"></i>TROPHY</span></div>
+  <div class="build-badge">CANONICAL BUILD · 30.08.2026</div>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
