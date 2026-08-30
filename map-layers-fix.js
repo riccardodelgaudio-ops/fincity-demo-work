@@ -9,7 +9,7 @@
   let snapped=false;
 
   function buildFeatures(){
-    const buildings=investment.map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{id:p.id,type:p.kind==='owned'?'owned':'active',label:String(p.id),free:free(p),name:p.name}}));
+    const buildings=investment.map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{id:p.id,type:p.kind==='owned'?'owned':'active',label:'⌂',free:free(p),name:p.name}}));
     const auctionFeatures=auctions.map(a=>({type:'Feature',geometry:{type:'Point',coordinates:[a.lng,a.lat]},properties:{id:a.id,type:'auction',label:'A',name:a.name}}));
     const trophyFeatures=trophies.map(t=>({type:'Feature',geometry:{type:'Point',coordinates:[t.lng,t.lat]},properties:{id:t.id,type:'trophy',label:'★',name:t.name}}));
     return {type:'FeatureCollection',features:[...buildings,...auctionFeatures,...trophyFeatures]};
