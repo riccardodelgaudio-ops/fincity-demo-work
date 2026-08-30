@@ -1,4 +1,4 @@
-// Building detail enhancement: per-building demo photos + reverse-geocoded map address.
+// Building detail enhancement: photos, auction interest and secondary-market actions.
 (function(){
   const photos={
     1:'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=82',
@@ -18,6 +18,12 @@
     15:'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=82'
   };
 
+  const listingKey=id=>`fincity-sale-listing:${id}`;
+  const offersKey=id=>`fincity-takeover-offers:${id}`;
+  function getListing(id){try{return JSON.parse(localStorage.getItem(listingKey(id))||'null')}catch(e){return null}}
+  function getOffers(id){try{return JSON.parse(localStorage.getItem(offersKey(id))||'[]')}catch(e){return []}}
+  function saveOffers(id,offers){localStorage.setItem(offersKey(id),JSON.stringify(offers))}
+
   async function reverseAddress(p){
     const target=document.getElementById('buildingAddress');if(!target)return;
     try{
@@ -30,9 +36,63 @@
     }catch(e){target.textContent=`Kartenpunkt ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`}
   }
 
+  function showTakeoverOffer(p){
+    const listing=getListing(p.id);const offers=getOffers(p.id);
+    const suggested=Math.round((listing?.askingPrice||p.lastAuctionPrice*1.15)/10)*10;
+    openPanel(`
+      <div class="eyebrow">SEKUNDÄRMARKT · ÜBERNAHMEANGEBOT</div>
+      <h2>${p.name}</h2>
+      <div class="card">
+        <div class="previewrow"><span>Aktueller Besitzer</span><b>${p.holder}</b></div>
+        <div class="previewrow"><span>Letzter Zuschlag</span><b>${chf(p.lastAuctionPrice)}</b></div>
+        ${listing?`<div class="previewrow"><span>Verkauf freigegeben</span><b>${listing.askingPrice?chf(listing.askingPrice):'Preis offen'}</b></div>`:'<div class="previewrow"><span>Verkaufsstatus</span><b>Nicht aktiv ausgeschrieben</b></div>'}
+        <div class="previewrow"><span>Bisherige Demo-Angebote</span><b>${offers.length}</b></div>
+      </div>
+      <label class="eyebrow" for="takeoverAmount">DEIN ÜBERNAHMEANGEBOT</label>
+      <input id="takeoverAmount" inputmode="decimal" type="number" min="1" step="10" value="${suggested}" style="width:100%;margin:6px 0 10px;padding:12px;border-radius:10px;border:1px solid #2b3a56;background:#0b111d;color:#fff">
+      <label class="eyebrow" for="takeoverNote">NACHRICHT AN DEN BESITZER</label>
+      <textarea id="takeoverNote" rows="3" placeholder="Ich möchte das digitale FinCity-Gebäude übernehmen." style="width:100%;margin:6px 0 10px;padding:12px;border-radius:10px;border:1px solid #2b3a56;background:#0b111d;color:#fff"></textarea>
+      <button class="action" id="submitTakeover">ÜBERNAHMEANGEBOT UNTERBREITEN</button>
+      <button class="action secondary" id="cancelTakeover">ZURÜCK ZUM GEBÄUDE</button>
+      <p class="note">Das Angebot betrifft nur die digitale FinCity-Gebäudeposition, nicht die reale Immobilie. Bei einem später erfolgreich abgeschlossenen Sekundärmarkt-Transfer gilt im Pricing-v1 eine FinCity-Marktplatzgebühr von 5 %. Für das reine Unterbreiten eines Angebots fällt keine Gebühr an.</p>
+    `);
+    document.getElementById('cancelTakeover').onclick=()=>showBuilding(p.id);
+    document.getElementById('submitTakeover').onclick=()=>{
+      const amount=Number(document.getElementById('takeoverAmount').value);if(!Number.isFinite(amount)||amount<=0)return;
+      const note=document.getElementById('takeoverNote').value.trim();
+      const all=getOffers(p.id);all.push({buyer:myPortfolio.user,amount,note,createdAt:new Date().toISOString(),status:'offen'});saveOffers(p.id,all);
+      openPanel(`<div class="eyebrow">SEKUNDÄRMARKT</div><h2>✓ Angebot übermittelt · Demo</h2><div class="card"><div class="previewrow"><span>Gebäude</span><b>${p.name}</b></div><div class="previewrow"><span>An Besitzer</span><b>${p.holder}</b></div><div class="previewrow"><span>Dein Angebot</span><b>${chf(amount)}</b></div></div><p class="note">Aktuell wird das Angebot lokal auf diesem Gerät gespeichert. Mit Backend würde der Besitzer eine echte Angebotsbenachrichtigung erhalten und könnte annehmen, ablehnen oder ein Gegenangebot senden.</p><button class="action" id="backBuildingAfterOffer">ZURÜCK ZUM GEBÄUDE</button>`);
+      document.getElementById('backBuildingAfterOffer').onclick=()=>showBuilding(p.id);
+    };
+  }
+
+  function showSaleRelease(p){
+    const listing=getListing(p.id);const offers=getOffers(p.id);const suggested=listing?.askingPrice||Math.round((p.lastAuctionPrice*1.15)/10)*10;
+    openPanel(`
+      <div class="eyebrow">MEIN GEBÄUDE · SEKUNDÄRMARKT</div>
+      <h2>${listing?'Verkaufsfreigabe bearbeiten':'Gebäude zum Verkauf freigeben'}</h2>
+      <div class="card"><div class="previewrow"><span>Gebäude</span><b>${p.name}</b></div><div class="previewrow"><span>Letzter Zuschlag</span><b>${chf(p.lastAuctionPrice)}</b></div><div class="previewrow"><span>Eingegangene Demo-Angebote</span><b>${offers.length}</b></div></div>
+      <label class="eyebrow" for="askingPrice">WUNSCHPREIS</label>
+      <input id="askingPrice" inputmode="decimal" type="number" min="1" step="10" value="${suggested}" style="width:100%;margin:6px 0 10px;padding:12px;border-radius:10px;border:1px solid #2b3a56;background:#0b111d;color:#fff">
+      <button class="action" id="releaseSale">${listing?'VERKAUFSFREIGABE AKTUALISIEREN':'GEBÄUDE ZUM VERKAUF FREIGEBEN'}</button>
+      ${listing?'<button class="action secondary" id="removeSale">VERKAUFSFREIGABE AUFHEBEN</button>':''}
+      <button class="action secondary" id="backOwnBuilding">ZURÜCK ZUM GEBÄUDE</button>
+      <p class="note">Die Freigabe macht das digitale FinCity-Gebäude für Übernahmeangebote sichtbar. Sie verkauft nichts automatisch. Ein Eigentumswechsel würde erst nach Annahme und finalem Transfer erfolgen; Pricing-v1: 5 % Sekundärmarktgebühr an FinCity.</p>
+    `);
+    document.getElementById('backOwnBuilding').onclick=()=>showBuilding(p.id);
+    document.getElementById('releaseSale').onclick=()=>{
+      const askingPrice=Number(document.getElementById('askingPrice').value);if(!Number.isFinite(askingPrice)||askingPrice<=0)return;
+      localStorage.setItem(listingKey(p.id),JSON.stringify({askingPrice,owner:p.holder,listedAt:new Date().toISOString()}));
+      openPanel(`<div class="eyebrow">SEKUNDÄRMARKT</div><h2>✓ Gebäude freigegeben · Demo</h2><div class="card"><div class="previewrow"><span>Gebäude</span><b>${p.name}</b></div><div class="previewrow"><span>Wunschpreis</span><b>${chf(askingPrice)}</b></div></div><p class="note">Das Gebäude ist auf diesem Gerät als zum Verkauf freigegeben markiert. Mit Backend wäre dieser Status für alle FinCity-User sichtbar.</p><button class="action" id="backAfterRelease">ZURÜCK ZUM GEBÄUDE</button>`);
+      document.getElementById('backAfterRelease').onclick=()=>showBuilding(p.id);
+    };
+    const remove=document.getElementById('removeSale');if(remove)remove.onclick=()=>{localStorage.removeItem(listingKey(p.id));showBuilding(p.id)};
+  }
+
   window.showBuilding=function(id){
     const p=investment.find(x=>x.id===id);if(!p)return;
     safeFly(p.lng,p.lat);
+    const own=p.holder===myPortfolio.user;const listing=getListing(p.id);const offers=getOffers(p.id);
     const photo=photos[id]||'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=82';
     openPanel(`
       <div class="eyebrow">AKTIVES GEBÄUDE · USER-PERFORMANCE</div>
@@ -56,14 +116,19 @@
         <div class="previewrow"><span>Slot-Gebühr</span><b>${slotFee(p.ret)}% p.a.</b></div>
         <div class="previewrow"><span>Letzte Auktion</span><b>${chf(p.lastAuctionPrice)} · ${p.lastAuctionDate}</b></div>
         ${Number.isFinite(p.bidCount)?`<div class="previewrow"><span>Interesse bei letzter Auktion</span><b>🔥 ${p.bidCount} Gebote</b></div>`:''}
+        ${listing?`<div class="previewrow"><span>Sekundärmarkt</span><b>🟢 Verkauf freigegeben · ${chf(listing.askingPrice)}</b></div>`:''}
+        ${own&&offers.length?`<div class="previewrow"><span>Übernahmeangebote</span><b>${offers.length} offen / gespeichert</b></div>`:''}
       </div>
       <div class="card"><div class="eyebrow">USER-ALLOKATION</div>${allocationHtml(p.allocation)}</div>
+      ${own?'<button class="action" id="saleReleaseBtn">GEBÄUDE ZUM VERKAUF FREIGEBEN</button>':'<button class="action" id="takeoverOfferBtn">ÜBERNAHMEANGEBOT UNTERBREITEN</button>'}
+      ${own?'<button class="action secondary" id="myPortfolioBtn">MEIN GESAMTPORTFOLIO →</button>':'<button class="action secondary" id="copyBtn">SLOT MIETEN · USER-STRATEGIE KOPIEREN →</button>'}
       <button class="action secondary" id="showOnMap">AUF GEBÄUDE ZENTRIEREN</button>
-      ${p.holder===myPortfolio.user?'<button class="action" id="myPortfolioBtn">MEIN GESAMTPORTFOLIO →</button>':'<button class="action" id="copyBtn">SLOT MIETEN · USER-STRATEGIE KOPIEREN →</button>'}
-      <p class="note">Das digitale FinCity-Gebäude repräsentiert keine Eigentumsrechte an der realen Immobilie.</p>
+      <p class="note">Sekundärmarkt-Aktionen betreffen die digitale FinCity-Gebäudeposition. Sie übertragen kein Eigentum an der realen Immobilie.</p>
     `);
     reverseAddress(p);
     const center=document.getElementById('showOnMap');if(center)center.onclick=()=>{safeFly(p.lng,p.lat);closePanel()};
+    const sale=document.getElementById('saleReleaseBtn');if(sale)sale.onclick=()=>showSaleRelease(p);
+    const offer=document.getElementById('takeoverOfferBtn');if(offer)offer.onclick=()=>showTakeoverOffer(p);
     const a=document.getElementById('myPortfolioBtn');if(a)a.onclick=showPortfolio;
     const c=document.getElementById('copyBtn');if(c)c.onclick=()=>copyStrategy(p.holder);
   };
