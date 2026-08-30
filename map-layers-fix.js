@@ -34,22 +34,21 @@
   }
 
   function openFeature(f){if(!f)return;const idNum=Number(f.properties.id),type=f.properties.type;if(type==='trophy')showTrophy(idNum);else if(type==='auction')showAuction(idNum);else showBuilding(idNum)}
-  function installTouchSelection(){
-    const allHit=Object.values(hitLayers);
-    const pick=e=>{if(!map)return;const p=e.point||map.project(e.lngLat);let hits=[];try{hits=map.queryRenderedFeatures([[p.x-18,p.y-18],[p.x+18,p.y+18]],{layers:allHit.filter(id=>map.getLayer(id))})||[]}catch(err){return}if(hits.length){if(e.preventDefault)e.preventDefault();openFeature(hits[0])}};
-    map.on('click',pick);map.on('touchend',pick);
-  }
 
   function addPointLayers(){
     if(!map||map.getSource(sourceId))return;removeHtmlMarkers();collection=buildFeatures();map.addSource(sourceId,{type:'geojson',data:collection});
     const colors={owned:'#ff8a30',active:'#7447ed',auction:'#22c8f2',trophy:'#f1c84b'};const textColors={owned:'#ffffff',active:'#ffffff',auction:'#07202a',trophy:'#332800'};
     types.forEach(type=>{
-      map.addLayer({id:hitLayers[type],type:'circle',source:sourceId,filter:['==',['get','type'],type],paint:{'circle-radius':26,'circle-color':'#ffffff','circle-opacity':0.01,'circle-pitch-scale':'viewport'}});
+      // Deliberately smaller tap area: users must actually tap the object, not merely navigate nearby.
+      map.addLayer({id:hitLayers[type],type:'circle',source:sourceId,filter:['==',['get','type'],type],paint:{'circle-radius':18,'circle-color':'#ffffff','circle-opacity':0.01,'circle-pitch-scale':'viewport'}});
       map.addLayer({id:circleLayers[type],type:'circle',source:sourceId,filter:['==',['get','type'],type],paint:{'circle-radius':['interpolate',['linear'],['zoom'],11,7,13,10,15,13,17,16],'circle-color':colors[type],'circle-stroke-color':'rgba(255,255,255,.82)','circle-stroke-width':2.2,'circle-opacity':.98,'circle-pitch-scale':'viewport'}});
       map.addLayer({id:labelLayers[type],type:'symbol',source:sourceId,filter:['==',['get','type'],type],layout:{'text-field':['get','label'],'text-size':['interpolate',['linear'],['zoom'],11,8,15,11,17,13],'text-font':['Noto Sans Regular'],'text-allow-overlap':true,'text-ignore-placement':true,'text-pitch-alignment':'viewport','text-rotation-alignment':'viewport'},paint:{'text-color':textColors[type],'text-halo-color':'rgba(0,0,0,.18)','text-halo-width':.5}});
-      map.on('mouseenter',hitLayers[type],()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave',hitLayers[type],()=>map.getCanvas().style.cursor='');map.on('click',hitLayers[type],e=>{if(e.features&&e.features[0])openFeature(e.features[0])});
+      map.on('mouseenter',hitLayers[type],()=>map.getCanvas().style.cursor='pointer');
+      map.on('mouseleave',hitLayers[type],()=>map.getCanvas().style.cursor='');
+      // Use only MapLibre's click gesture. Do NOT react to touchend, because touchend also fires after pinch/drag navigation.
+      map.on('click',hitLayers[type],e=>{if(e.features&&e.features[0])openFeature(e.features[0])});
     });
-    installTouchSelection();map.once('idle',snapBuildingsToFootprints);
+    map.once('idle',snapBuildingsToFootprints);
   }
 
   function setTypeVisibility(type,visible){[hitLayers[type],circleLayers[type],labelLayers[type]].forEach(id=>{if(map&&map.getLayer(id))map.setLayoutProperty(id,'visibility',visible?'visible':'none')})}
