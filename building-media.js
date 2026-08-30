@@ -55,6 +55,7 @@
         <div class="previewrow"><span>Slots</span><b>${p.occupied}/${p.slots} belegt · ${free(p)} frei</b></div>
         <div class="previewrow"><span>Slot-Gebühr</span><b>${slotFee(p.ret)}% p.a.</b></div>
         <div class="previewrow"><span>Letzte Auktion</span><b>${chf(p.lastAuctionPrice)} · ${p.lastAuctionDate}</b></div>
+        ${Number.isFinite(p.bidCount)?`<div class="previewrow"><span>Interesse bei letzter Auktion</span><b>🔥 ${p.bidCount} Gebote</b></div>`:''}
       </div>
       <div class="card"><div class="eyebrow">USER-ALLOKATION</div>${allocationHtml(p.allocation)}</div>
       <button class="action secondary" id="showOnMap">AUF GEBÄUDE ZENTRIEREN</button>
