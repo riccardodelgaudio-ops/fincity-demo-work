@@ -3,14 +3,8 @@
   if(window.FINCITY_MAP_PROVIDER!=='mapbox')return;
 
   // Mapbox Standard already provides premium 3D buildings and lighting.
-  // Prevent the legacy OpenFreeMap extrusion and Esri satellite overlay from being added on initial load.
+  // Prevent the legacy OpenFreeMap extrusion and Esri raster layer from the old app bootstrap.
   add3d=function(){};
-  satellite=function(){
-    if(typeof map==='undefined'||!map)return;
-    try{map.setStyle('mapbox://styles/mapbox/standard-satellite')}catch(e){console.warn(e)}
-  };
-  normalMap=function(){
-    if(typeof map==='undefined'||!map)return;
-    try{map.setStyle('mapbox://styles/mapbox/standard')}catch(e){console.warn(e)}
-  };
+  satellite=function(){};
+  normalMap=function(){};
 })();
