@@ -20,7 +20,6 @@
     return isFinite(minX)?[(minX+maxX)/2,(minY+maxY)/2]:null;
   }
 
-  // Official swisstopo approximation WGS84 -> LV95, suitable for point queries.
   function wgs84ToLv95(lon,lat){
     const latSec=lat*3600,lonSec=lon*3600;
     const latAux=(latSec-169028.66)/10000;
@@ -32,11 +31,7 @@
 
   async function officialSwissBuilding(lon,lat){
     const [e,n]=wgs84ToLv95(lon,lat);
-    const q=new URLSearchParams({
-      geometryType:'esriGeometryPoint',geometry:`${e},${n}`,
-      imageDisplay:'100,100,96',mapExtent:'0,0,100,100',tolerance:'18',
-      layers:'all:ch.bfs.gebaeude_wohnungs_register',returnGeometry:'false',sr:'2056',lang:'de'
-    });
+    const q=new URLSearchParams({geometryType:'esriGeometryPoint',geometry:`${e},${n}`,imageDisplay:'100,100,96',mapExtent:'0,0,100,100',tolerance:'18',layers:'all:ch.bfs.gebaeude_wohnungs_register',returnGeometry:'false',sr:'2056',lang:'de'});
     const r=await fetch('https://api3.geo.admin.ch/rest/services/ech/MapServer/identify?'+q.toString());
     if(!r.ok)throw new Error('GWR unavailable');
     const j=await r.json();
@@ -102,20 +97,24 @@
     };
   }
 
+  async function loadGenericBuilding(lon,lat){
+    openPanel(`<div class="eyebrow">GEBÄUDE WIRD GELADEN</div><h2>Adresse wird geprüft …</h2><div class="card"><div class="note">FinCity sucht die offizielle Gebäudeadresse und den GWR-Eintrag.</div></div>`);
+    let info=null;try{info=await officialSwissBuilding(lon,lat)}catch(err){}
+    if(!info)info=await fallbackAddress(lon,lat);
+    showGenericBuilding({...info,lon,lat});
+  }
+  window.openGenericBuildingFromCoordinates=loadGenericBuilding;
+
   async function handleBuildingTap(e){
-    if(!map||!map.getLayer('fincity-3d'))return;
-    const p=e.point;
-    // Known FinCity objects always win over generic building selection.
+    if(!map||window.FINCITY_MAP_PROVIDER==='mapbox'||!map.getLayer('fincity-3d'))return;
+    const p=e.point||map.project(e.lngLat);
     const known=knownHitLayers.filter(id=>map.getLayer(id));
     if(known.length){try{if(map.queryRenderedFeatures([[p.x-20,p.y-20],[p.x+20,p.y+20]],{layers:known}).length)return}catch(err){}}
     let hits=[];
     try{hits=map.queryRenderedFeatures([[p.x-7,p.y-7],[p.x+7,p.y+7]],{layers:['fincity-3d']})||[]}catch(err){return}
     const f=hits[0];if(!f)return;
     const c=polygonCenter(f.geometry)||[e.lngLat.lng,e.lngLat.lat];
-    openPanel(`<div class="eyebrow">GEBÄUDE WIRD GELADEN</div><h2>Adresse wird geprüft …</h2><div class="card"><div class="note">FinCity sucht die offizielle Gebäudeadresse und den GWR-Eintrag.</div></div>`);
-    let info=null;try{info=await officialSwissBuilding(c[0],c[1])}catch(err){}
-    if(!info)info=await fallbackAddress(c[0],c[1]);
-    showGenericBuilding({...info,lon:c[0],lat:c[1]});
+    await loadGenericBuilding(c[0],c[1]);
   }
 
   function install(){
