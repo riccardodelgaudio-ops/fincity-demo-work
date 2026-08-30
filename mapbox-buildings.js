@@ -1,7 +1,10 @@
 // Building interactions for Mapbox Standard.
 (function(){
   if(window.FINCITY_MAP_PROVIDER!=='mapbox')return;
-  let selected=null,hovered=null;
+  let selected=null,hovered=null,suppressUntil=0;
+
+  function blockFor(ms){suppressUntil=Math.max(suppressUntil,Date.now()+ms)}
+  function gestureBlocked(){return Date.now()<suppressUntil||map.isMoving()||map.isZooming()||map.isRotating()}
 
   function centerOfGeometry(g,fallback){
     if(!g)return fallback;
@@ -18,7 +21,16 @@
   function knownObjectAt(point){
     const layers=['fincity-owned-hit','fincity-active-hit','fincity-auction-hit','fincity-trophy-hit'].filter(id=>map.getLayer(id));
     if(!layers.length||!point)return false;
-    try{return map.queryRenderedFeatures([[point.x-20,point.y-20],[point.x+20,point.y+20]],{layers}).length>0}catch(e){return false}
+    try{return map.queryRenderedFeatures([[point.x-14,point.y-14],[point.x+14,point.y+14]],{layers}).length>0}catch(e){return false}
+  }
+
+  function installGestureGuard(){
+    map.on('dragstart',e=>{if(e.originalEvent)blockFor(650)});
+    map.on('zoomstart',e=>{if(e.originalEvent)blockFor(800)});
+    map.on('rotatestart',e=>{if(e.originalEvent)blockFor(800)});
+    map.on('pitchstart',e=>{if(e.originalEvent)blockFor(800)});
+    map.on('touchstart',e=>{const n=e.originalEvent?.touches?.length||e.points?.length||0;if(n>1)blockFor(1000)});
+    map.on('moveend',()=>{if(suppressUntil>Date.now())suppressUntil=Math.max(suppressUntil,Date.now()+180)});
   }
 
   function install(){
@@ -33,6 +45,7 @@
         if(hovered)try{map.setFeatureState(hovered,{highlight:false})}catch(e){}hovered=null;map.getCanvas().style.cursor='';
       }});
       map.addInteraction('fincity-building-click',{type:'click',target:{featuresetId:'buildings',importId:'basemap'},handler:(e)=>{
+        if(gestureBlocked())return false;
         const point=e.point||map.project(e.lngLat);if(knownObjectAt(point))return false;
         if(selected)try{map.setFeatureState(selected,{select:false})}catch(err){}
         selected=e.feature;try{map.setFeatureState(e.feature,{select:true})}catch(err){}
@@ -43,6 +56,7 @@
     }catch(e){console.warn('FinCity Mapbox building interactions',e)}
   }
 
+  installGestureGuard();
   const run=()=>setTimeout(install,200);
   if(map.loaded())run();else map.on('load',run);
   map.on('style.load',()=>setTimeout(install,220));
