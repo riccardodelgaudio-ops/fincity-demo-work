@@ -18,8 +18,8 @@
   <main id="map" class="map"></main>
   <nav class="side-nav" aria-label="FinCity Hauptnavigation">
     <button class="nav-btn active" data-view="city"><span class="ico">◇</span><b>STADT</b></button>
-    <button class="nav-btn" data-view="auctions"><span class="ico">⌁</span><b>AUKTIONEN</b></button>
-    <button class="nav-btn" data-view="active"><span class="ico">▤</span><b>AKTIVE</b></button>
+    <button class="nav-btn" data-view="auctions"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.7 3.8l6.5 6.5-2.8 2.8-6.5-6.5 2.8-2.8Z"/><path d="M12.2 8.1l-7.7 7.7 3.7 3.7 7.7-7.7"/><path d="M3.2 20.5h9.3"/></svg></span><b>AUKTIONEN</b></button>
+    <button class="nav-btn" data-view="active"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l8-4 8 4v14"/><path d="M8 10h2M14 10h2M8 14h2M14 14h2"/><path d="M7 21v-3h4v3"/><circle cx="18" cy="18" r="3.2" fill="#241d4c"/><path d="m16.7 18 1 1 1.8-2"/></svg></span><b>AKTIVE</b></button>
     <button class="nav-btn" data-view="portfolio"><span class="ico">◉</span><b>PORTFOLIO</b></button>
     <button class="nav-btn" data-view="ranking"><span class="ico">🏆</span><b>RANGLISTE</b></button>
     <button class="nav-btn" data-view="trophies"><span class="ico">🏅</span><b>TROPHÄEN</b></button>
@@ -35,7 +35,7 @@
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
   <div class="legend"><span><i class="orange"></i>MEIN</span><span><i class="violet"></i>AKTIV</span><span><i class="cyan"></i>AUKTION</span><span><i class="gold"></i>TROPHY</span></div>
-  <div class="build-badge">CANONICAL BUILD · CITY UI FIXES</div>
+  <div class="build-badge">CANONICAL BUILD · MARKET VALUE GRAPHICS</div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.28.1/mapbox-gl.js"></script>
   <script src="./mapbox-provider.js"></script>
@@ -54,5 +54,6 @@
   <script src="./premium-map.js"></script>
   <script src="./mapbox-controls.js"></script>
   <script src="./city-ui-fixes.js"></script>
+  <script src="./market-value.js"></script>
 </body>
 </html>
