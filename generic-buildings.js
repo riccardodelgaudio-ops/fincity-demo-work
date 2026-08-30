@@ -109,9 +109,10 @@
     if(!map||window.FINCITY_MAP_PROVIDER==='mapbox'||!map.getLayer('fincity-3d'))return;
     const p=e.point||map.project(e.lngLat);
     const known=knownHitLayers.filter(id=>map.getLayer(id));
-    if(known.length){try{if(map.queryRenderedFeatures([[p.x-20,p.y-20],[p.x+20,p.y+20]],{layers:known}).length)return}catch(err){}}
+    if(known.length){try{if(map.queryRenderedFeatures([[p.x-14,p.y-14],[p.x+14,p.y+14]],{layers:known}).length)return}catch(err){}}
     let hits=[];
-    try{hits=map.queryRenderedFeatures([[p.x-7,p.y-7],[p.x+7,p.y+7]],{layers:['fincity-3d']})||[]}catch(err){return}
+    // Keep generic selection tight: the user must tap the actual rendered building footprint.
+    try{hits=map.queryRenderedFeatures([[p.x-3,p.y-3],[p.x+3,p.y+3]],{layers:['fincity-3d']})||[]}catch(err){return}
     const f=hits[0];if(!f)return;
     const c=polygonCenter(f.geometry)||[e.lngLat.lng,e.lngLat.lat];
     await loadGenericBuilding(c[0],c[1]);
@@ -119,7 +120,8 @@
 
   function install(){
     if(!map)return;
-    const attach=()=>{map.on('click',handleBuildingTap);map.on('touchend',handleBuildingTap)};
+    // Deliberate click/tap only. touchend is intentionally not used because it fires after pinch/zoom/drag gestures.
+    const attach=()=>{map.on('click',handleBuildingTap)};
     if(map.loaded())attach();else map.once('load',attach);
   }
   install();
