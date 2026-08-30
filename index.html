@@ -24,7 +24,7 @@
     <button class="nav-btn" data-view="fees"><span class="ico">%</span><b>GEBÜHREN</b></button>
     <button class="nav-btn" data-view="trophies"><span class="ico">🏅</span><b>TROPHÄEN</b></button>
   </nav>
-  <section class="map-controls"><button id="satBtn" class="active">SATELLIT + 3D</button><button id="mapBtn">KARTE</button></section>
+  <section class="map-controls"><button id="investMapBtn" class="active">INVEST</button><button id="satBtn">SATELLIT</button><button id="mapBtn">2D</button></section>
   <section class="filters">
     <button class="filter active" data-filter="all">ALLE OBJEKTE</button>
     <button class="filter" data-filter="owned">MEINE GEBÄUDE</button>
@@ -34,7 +34,7 @@
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
   <div class="legend"><span><i class="orange"></i>MEIN</span><span><i class="violet"></i>AKTIV</span><span><i class="cyan"></i>AUKTION</span><span><i class="gold"></i>TROPHY</span></div>
-  <div class="build-badge">CANONICAL BUILD · SWISS LANDMARK IMAGES</div>
+  <div class="build-badge">CANONICAL BUILD · INVESTOR MAP</div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="./app.js"></script>
   <script src="./map-layers-fix.js"></script>
@@ -45,5 +45,6 @@
   <script src="./zurich-data-fixes.js"></script>
   <script src="./city-network.js"></script>
   <script src="./landmark-media.js"></script>
+  <script src="./premium-map.js"></script>
 </body>
 </html>
