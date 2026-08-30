@@ -39,7 +39,8 @@
   }
 
   function marketHeatData(){
-    return {type:'FeatureCollection',features:(window.investment||[]).map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{weight:Math.max(1,Number(p.bidCount)||12),price:Number(p.lastAuctionPrice)||0}}))};
+    const rows=typeof investment!=='undefined'?investment:[];
+    return {type:'FeatureCollection',features:rows.map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{weight:Math.max(1,Number(p.bidCount)||12),price:Number(p.lastAuctionPrice)||0}}))};
   }
 
   function ensureDemandHeat(){
