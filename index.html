@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#080b13">
   <title>FinCity · Schweiz Demo</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.28.1/mapbox-gl.css">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -34,17 +35,22 @@
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
   <div class="legend"><span><i class="orange"></i>MEIN</span><span><i class="violet"></i>AKTIV</span><span><i class="cyan"></i>AUKTION</span><span><i class="gold"></i>TROPHY</span></div>
-  <div class="build-badge">CANONICAL BUILD · INVESTOR MAP</div>
+  <div class="build-badge">CANONICAL BUILD · MAPBOX STANDARD READY</div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.28.1/mapbox-gl.js"></script>
+  <script src="./mapbox-provider.js"></script>
   <script src="./app.js"></script>
+  <script src="./mapbox-runtime.js"></script>
   <script src="./map-layers-fix.js"></script>
   <script src="./building-media.js"></script>
   <script src="./generic-buildings.js"></script>
+  <script src="./mapbox-buildings.js"></script>
   <script src="./leaderboards.js"></script>
   <script src="./active-sort.js"></script>
   <script src="./zurich-data-fixes.js"></script>
   <script src="./city-network.js"></script>
   <script src="./landmark-media.js"></script>
   <script src="./premium-map.js"></script>
+  <script src="./mapbox-controls.js"></script>
 </body>
 </html>
