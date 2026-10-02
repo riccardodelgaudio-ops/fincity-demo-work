@@ -42,7 +42,7 @@
   const steps = ["Status","Unterlagen","Daten","Prüfung","Anfrage"];
   const state = {
     step: 1, docs: [], consent: false, scanning: false, ocrStatus: "",
-    person: { firstName:"", lastName:"", street:"", postalCode:"", city:"", email:"", phone:"", maritalStatus:"", employmentStatus:"", employmentEndDate:"", selfEmployed:"" },
+    person: { firstName:"", lastName:"", street:"", postalCode:"", city:"", email:"", phone:"", maritalStatus:"", employmentStatus:"", employmentEndDate:"" },
     finalConsent: false, contactMethod:"Telefon", note:"", leadPrepared:false
   };
   const surface = document.getElementById("surface");
@@ -103,41 +103,68 @@
     return best;
   }
   function plausiblePersonName(line){
-    const s=String(line||'').replace(/\s+/g,' ').trim();
-    if(!s||s.length<4||s.length>60||/\d|@|www\.|versicherung|vorsorge|pensionskasse|strasse|straße|weg|platz|gasse|postfach|telefon|tel\b|policen|versicherten/i.test(s))return null;
+    let s=String(line||'').replace(/\s+/g,' ').trim();
+    s=s.replace(/^(pers[oö]nlich|persoenlich|frau|herr)\s*[:.-]?\s*/i,'').trim();
+    if(!s||s.length<4||s.length>70||/\d|@|www\.|versicherung|vorsorge|pensionskasse|strasse|straße|weg|platz|gasse|postfach|telefon|tel\b|policen|versicherten|arbeitgeber|geburtsdatum/i.test(s))return null;
     const parts=s.split(' ').filter(Boolean);
     if(parts.length<2||parts.length>5)return null;
-    if(!parts.every(p=>/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’-]*$/.test(p)))return null;
-    return {firstName:parts[0],lastName:parts.slice(1).join(' ')};
+    if(!parts.every(p=>/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*$/.test(p)))return null;
+    return {firstName:parts[0].replace(/[.,]$/,''),lastName:parts.slice(1).join(' ').replace(/[.,]$/,'')};
   }
   function extractPersonHints(text){
     const lines=textLines(text);
     let firstName='',lastName='',postalCode='',city='',street='';
-    let addressIndex=-1;
+    let addressIndex=-1,streetIndex=-1;
+
+    // Swiss address line, tolerant of OCR punctuation.
     for(let i=0;i<lines.length;i++){
-      const m=lines[i].match(/\b([1-9]\d{3})\s+([A-Za-zÄÖÜäöüÀ-ÿ][A-Za-zÄÖÜäöüÀ-ÿ .'-]{2,45})$/);
+      const normalized=lines[i].replace(/[|,;]/g,' ').replace(/\s+/g,' ').trim();
+      const m=normalized.match(/\b([1-9]\d{3})\s+([A-Za-zÄÖÜäöüÀ-ÿ][A-Za-zÄÖÜäöüÀ-ÿ .'-]{2,45})$/);
       if(m){
-        postalCode=m[1];city=m[2].trim();addressIndex=i;
-        const prev=lines[i-1]||'';
-        if(/\d/.test(prev)&&prev.length<70&&!/telefon|tel\b|policen|versicherten/i.test(prev)) street=prev;
+        postalCode=m[1]; city=m[2].trim(); addressIndex=i;
+        for(let j=i-1;j>=Math.max(0,i-3);j--){
+          const prev=lines[j];
+          if(/\d/.test(prev)&&/(strasse|straße|weg|gasse|platz|rain|halde|matte|acker|berg|hof|allee|quai|steig|str\.?\b)/i.test(prev)&&prev.length<80){
+            street=prev.replace(/^[^A-Za-zÄÖÜäöüÀ-ÿ]+/,'').trim(); streetIndex=j; break;
+          }
+        }
+        if(!street){
+          const prev=lines[i-1]||'';
+          if(/\d/.test(prev)&&prev.length<80&&!/telefon|tel\b|policen|versicherten|datum/i.test(prev)){street=prev;streetIndex=i-1;}
+        }
         break;
       }
     }
-    // Typical Swiss certificates: "Persönlich" / "Frau|Herr" / Name / street / PLZ city.
-    const salutation=lines.findIndex(x=>/^(frau|herr|persönlich|persoenlich)$/i.test(x));
+
+    // Explicit salutation / personal-address block.
+    let salutation=-1;
+    for(let i=0;i<lines.length;i++){
+      if(/^(pers[oö]nlich|persoenlich|frau|herr)\b/i.test(lines[i])){salutation=i;break;}
+    }
     if(salutation>=0){
-      for(let j=salutation+1;j<Math.min(lines.length,salutation+5);j++){
-        if(/^(frau|herr|persönlich|persoenlich)$/i.test(lines[j]))continue;
-        const n=plausiblePersonName(lines[j]); if(n){firstName=n.firstName;lastName=n.lastName;break;}
+      for(let j=salutation;j<Math.min(lines.length,salutation+7);j++){
+        const n=plausiblePersonName(lines[j]);
+        if(n){firstName=n.firstName;lastName=n.lastName;break;}
       }
     }
-    // If no salutation survived OCR, infer the name directly above street/address.
-    if(!firstName&&addressIndex>1){
-      const streetIdx=street?addressIndex-1:addressIndex;
-      for(let j=streetIdx-1;j>=Math.max(0,streetIdx-4);j--){
-        const n=plausiblePersonName(lines[j]); if(n){firstName=n.firstName;lastName=n.lastName;break;}
+
+    // Name immediately above street/address is a strong fallback.
+    if(!firstName&&addressIndex>0){
+      const anchor=streetIndex>=0?streetIndex:addressIndex;
+      for(let j=anchor-1;j>=Math.max(0,anchor-5);j--){
+        const n=plausiblePersonName(lines[j]);
+        if(n){firstName=n.firstName;lastName=n.lastName;break;}
       }
     }
+
+    // OCR sometimes joins salutation and name on one line.
+    if(!firstName){
+      for(const line of lines.slice(0,30)){
+        const m=line.match(/\b(?:frau|herr)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]+)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]+(?:\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]+)?)\b/i);
+        if(m){firstName=m[1];lastName=m[2];break;}
+      }
+    }
+
     return {firstName,lastName,postalCode,city,street};
   }
   function mergeHints(h){ ['firstName','lastName','postalCode','city','street'].forEach(k=>{if(!state.person[k]&&h[k]) state.person[k]=h[k]}) }
@@ -358,6 +385,16 @@
       ctx.putImageData(im,0,0); return canvas;
     } finally{URL.revokeObjectURL(url)}
   }
+  function personalDataCanvas(source){
+    const crop=document.createElement('canvas');
+    // Upper document area: where Swiss certificates normally place name/address.
+    const h=Math.max(1,Math.round(source.height*0.58));
+    crop.width=source.width; crop.height=h;
+    const ctx=crop.getContext('2d',{alpha:false});
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,crop.width,crop.height);
+    ctx.drawImage(source,0,0,source.width,h,0,0,crop.width,h);
+    return crop;
+  }
   async function pdfCanvases(file){
     if(!window.pdfjsLib) throw new Error('PDF-Unterstützung konnte nicht geladen werden.'); window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
     const data=await file.arrayBuffer(), pdf=await window.pdfjsLib.getDocument({data}).promise, pages=[]; const max=Math.min(pdf.numPages,6);
@@ -379,11 +416,22 @@
             state.ocrStatus=`Aufnahme ${i+1}, Seite ${p+1} wird gelesen …`;
             const r=await w.recognize(canvases[p]);
             text+='\n'+(r?.data?.text||'');
+            // A focused second pass on the upper part greatly improves name/address
+            // extraction on photographed certificates and screen photos.
+            if(p===0){
+              try{
+                if(w.setParameters) await w.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
+                const pr=await w.recognize(personalDataCanvas(canvases[p]));
+                text+='\n'+(pr?.data?.text||'');
+                if(w.setParameters) await w.setParameters({preserve_interword_spaces:'1'});
+              }catch(_){}
+            }
           }
         }
         d.ocrText=text;
         d.institution=extractInstitution(text)||d.institution;
         d.personHints=extractPersonHints(text);
+        mergeHints(d.personHints);
         d.identity=extractDocumentIdentity(text);
         d.status='read';
       }
@@ -396,7 +444,7 @@
   }
 
   function renderStep3(){
-    const p=state.person; surface.innerHTML=heading('👤',3,'Daten & Voraussetzungen prüfen','Bitte kontrollieren Sie die Kontaktdaten. Danach prüfen wir die grundlegenden Voraussetzungen für einen Bezug im Zusammenhang mit Selbstständigkeit.')+`
+    const p=state.person; surface.innerHTML=heading('👤',3,'Personalien prüfen','Bitte kontrollieren und ergänzen Sie die erkannten Angaben.')+`
       <div class="form-grid">
         <label><span>Vorname</span><input id="firstName" autocomplete="given-name" value="${esc(p.firstName)}"></label>
         <label><span>Nachname</span><input id="lastName" autocomplete="family-name" value="${esc(p.lastName)}"></label>
@@ -408,23 +456,14 @@
         <label class="full"><span>Zivilstand</span><select id="maritalStatus"><option value="">Bitte wählen</option><option ${p.maritalStatus==='ledig'?'selected':''} value="ledig">Ledig / nicht in eingetragener Partnerschaft</option><option ${p.maritalStatus==='verheiratet'?'selected':''} value="verheiratet">Verheiratet / eingetragene Partnerschaft</option><option ${p.maritalStatus==='andere'?'selected':''} value="andere">Andere</option></select></label>
       </div>
       <div class="info-strip"><b>Erwerbssituation bereits geprüft:</b> ${esc(employmentLabel())}. Falls sich daran etwas ändert, gehen Sie über „Zurück“ bis zum ersten Schritt.</div>
-      <div class="gate-card"><div class="radio-title">Selbstständigkeit als Bezugsgrund</div><div class="radio-card">
-        <label class="radio-option"><input type="radio" name="selfEmployed" value="yes" ${p.selfEmployed==='yes'?'checked':''}><span><b>Ja, ich nehme eine selbstständige Erwerbstätigkeit auf / habe sie aufgenommen</b><small>Die definitive Anerkennung und Bezugsberechtigung wird separat geprüft.</small></span></label>
-        <label class="radio-option"><input type="radio" name="selfEmployed" value="checking" ${p.selfEmployed==='checking'?'checked':''}><span><b>Ist noch in Abklärung</b><small>Eine Beratung ist möglich; eine Auszahlung kann erst nach erfüllten Voraussetzungen vorbereitet werden.</small></span></label>
-        <label class="radio-option"><input type="radio" name="selfEmployed" value="no" ${p.selfEmployed==='no'?'checked':''}><span><b>Nein</b><small>Dann passt dieser Bezugsprozess aktuell nicht.</small></span></label>
-      </div></div>
       <div class="gate-card"><div class="radio-title">Pensionskasse erkannt</div><div class="section-copy">${state.docs.filter(d=>(d.type==='fz'||d.type==='other')&&d.institution).length?'Die passenden Formulare werden von Carlet Finance Coaching übernommen und für Sie vorbereitet.':'Falls eine Pensionskasse vorhanden ist, erfassen wir diese aus Ihren Unterlagen.'}</div></div>
-      <div id="gateMessage"></div>
       ${p.maritalStatus==='verheiratet'?'<div class="warning-strip">Bei Barauszahlungen aus der 2. Säule kann eine schriftliche Zustimmung des Ehegatten bzw. der eingetragenen Partnerperson erforderlich sein.</div>':''}
-      <div class="info-strip"><b>Wichtig:</b> Ein gekündigtes Arbeitsverhältnis ist für die Beratung bereits relevant. Eine Barauszahlung wegen Selbstständigkeit setzt jedoch voraus, dass die obligatorische berufliche Vorsorge nicht mehr besteht und die Selbstständigkeit von den zuständigen Stellen anerkannt bzw. nachgewiesen wird.</div>
       <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn primary" id="nextBtn">Guthaben berechnen →</button></div>`;
     const ids=['firstName','lastName','street','postalCode','city','email','phone','maritalStatus']; ids.forEach(id=>document.getElementById(id).oninput=e=>{state.person[id]=e.target.value;if(id==='maritalStatus')renderStep3()});
-    document.querySelectorAll('input[name=selfEmployed]').forEach(r=>r.onchange=e=>{state.person.selfEmployed=e.target.value;updateGate()});
-    document.getElementById('backBtn').onclick=()=>go(2); document.getElementById('nextBtn').onclick=()=>{syncPerson(); const problem=validateStep3(); if(problem){document.getElementById('gateMessage').innerHTML=`<div class="error-strip">${esc(problem)}</div>`;return} go(4)}; updateGate();
+    document.getElementById('backBtn').onclick=()=>go(2); document.getElementById('nextBtn').onclick=()=>{syncPerson(); const problem=validateStep3(); if(problem){alert(problem);return} go(4)};
   }
   function syncPerson(){['firstName','lastName','street','postalCode','city','email','phone','maritalStatus'].forEach(id=>{const el=document.getElementById(id);if(el)state.person[id]=el.value})}
-  function validateStep3(){const p=state.person;if(!p.firstName||!p.lastName||!p.street||!/^[1-9]\d{3}$/.test(p.postalCode)||!p.city||!/^\S+@\S+\.\S+$/.test(p.email)||!p.phone)return'Bitte alle Kontakt- und Adressfelder vollständig ausfüllen.';if(!p.maritalStatus)return'Bitte den Zivilstand auswählen.';if(p.selfEmployed==='no')return'Ohne Aufnahme einer selbstständigen Erwerbstätigkeit kann dieser Bezugsweg hier nicht weitergeführt werden.';if(!p.selfEmployed)return'Bitte den Stand Ihrer Selbstständigkeit angeben.';return''}
-  function updateGate(){const el=document.getElementById('gateMessage');if(!el)return; if(state.person.selfEmployed==='no')el.innerHTML='<div class="error-strip">Stopp: Dieser Prozess ist auf einen möglichen Bezug im Zusammenhang mit der Aufnahme einer Selbstständigkeit ausgerichtet.</div>'; else if(state.person.selfEmployed==='checking')el.innerHTML='<div class="warning-strip">Beratung möglich: Die Selbstständigkeit muss vor einer Auszahlung rechtlich und administrativ geklärt bzw. anerkannt sein.</div>'; else if(state.person.selfEmployed==='yes')el.innerHTML='<div class="success-strip">✓ Selbstständigkeit als Bezugsgrund angegeben. Die definitive Anerkennung und Auszahlung wird separat geprüft.</div>'; else el.innerHTML=''}
+  function validateStep3(){const p=state.person;if(!p.firstName||!p.lastName||!p.street||!/^[1-9]\d{3}$/.test(p.postalCode)||!p.city||!/^\S+@\S+\.\S+$/.test(p.email)||!p.phone)return'Bitte alle Kontakt- und Adressfelder vollständig ausfüllen.';if(!p.maritalStatus)return'Bitte den Zivilstand auswählen.';return''}
 
   function totals(){const second=sum(state.docs.filter(d=>d.type==='fz'||d.type==='other').map(d=>d.amount)), third=sum(state.docs.filter(d=>d.type==='p3bank'||d.type==='p3insurance').map(d=>d.amount)), total=second+third, fee=total*CONFIG.feeRate,tax=total*CONFIG.taxReserveRate;return{second,third,total,fee,tax,afterFee:total-fee,planning:total-fee-tax}}
   function renderStep4(){const t=totals(); surface.innerHTML=heading('🧮',4,'Guthaben & Kostenübersicht','Alle erfassten Freizügigkeits- und Säule-3a-Guthaben werden zusammengerechnet. Bitte die Werte vor der Anfrage nochmals prüfen.')+`
@@ -438,7 +477,7 @@
     document.getElementById('finalConsent').onchange=e=>{state.finalConsent=e.target.checked;document.getElementById('nextBtn').disabled=!state.finalConsent}; document.getElementById('backBtn').onclick=()=>go(3);document.getElementById('nextBtn').onclick=()=>go(5);
   }
 
-  function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nErwerbssituation: ${p.employmentStatus==='active'?'Ungekündigtes Arbeitsverhältnis':p.employmentStatus==='notice'?'Gekündigtes Arbeitsverhältnis / noch tätig':'Arbeitslos / nicht erwerbstätig'}\nAustrittsdatum: ${p.employmentEndDate||'-'}\nSelbstständigkeit: ${p.selfEmployed}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.institution||'Vorsorgeeinrichtung unbekannt'} – ${(d.files&&d.files.length)||1} Datei(en)/Seite(n)`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nPlanungsbetrag: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}\n\nINTERNE FORMULAR-LINKS:\n${internalFormLinksText()}`}
+  function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nErwerbssituation: ${p.employmentStatus==='active'?'Ungekündigtes Arbeitsverhältnis':p.employmentStatus==='notice'?'Gekündigtes Arbeitsverhältnis / noch tätig':'Arbeitslos / nicht erwerbstätig'}\nAustrittsdatum: ${p.employmentEndDate||'-'}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.institution||'Vorsorgeeinrichtung unbekannt'} – ${(d.files&&d.files.length)||1} Datei(en)/Seite(n)`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nPlanungsbetrag: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}\n\nINTERNE FORMULAR-LINKS:\n${internalFormLinksText()}`}
   function renderStep5(){const t=totals();surface.innerHTML=heading('✓',5,'Anfrage','')+`
       <div class="lead-card"><h3>${esc(state.person.firstName)} ${esc(state.person.lastName)} · ${money(t.total)}</h3></div>
       <label class="select-block"><span>Kontakt</span><select id="contactMethod"><option ${state.contactMethod==='Telefon'?'selected':''}>Telefon</option><option ${state.contactMethod==='E-Mail'?'selected':''}>E-Mail</option><option ${state.contactMethod==='WhatsApp'?'selected':''}>WhatsApp</option></select></label>
