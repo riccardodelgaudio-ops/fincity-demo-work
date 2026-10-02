@@ -39,10 +39,40 @@
     {name:"Helvetia",keys:["helvetia"],links:[["Barauszahlung Austritts-/Freizügigkeitsleistung","https://www.helvetia.com/corp/wcf/servlets/blankopdf.html?afAcceptLang=de&form=%2Fcontent%2Fforms%2Faf%2Fwcf%2Fch%2Fforms-web%2Fcorporate-customer%2Ffzp%2Ffzp-redemption"]]},
     {name:"Pensionskasse Basel-Stadt (PKBS)",keys:["pensionskasse basel-stadt","pkbs"],links:[["Austritt & Barauszahlung","https://www.pkbs.ch/de/vorsorge/austritt/"]]}
   ];
+  const FIRST_PILLAR_OFFICES = {
+    AG:{name:"SVA Aargau",url:"https://www.sva-aargau.ch/selbststaendige"},
+    AI:{name:"Ausgleichskasse Appenzell Innerrhoden",url:"https://www.akai.ch"},
+    AR:{name:"Sozialversicherungen Appenzell Ausserrhoden",url:"https://www.sovar.ch"},
+    BE:{name:"Ausgleichskasse des Kantons Bern",url:"https://www.akbern.ch"},
+    BL:{name:"SVA Basel-Landschaft",url:"https://www.sva-bl.ch"},
+    BS:{name:"Ausgleichskasse Basel-Stadt",url:"https://www.ak-bs.ch"},
+    FR:{name:"Ausgleichskasse des Kantons Freiburg",url:"https://www.ksvafr.ch"},
+    GE:{name:"Caisse genevoise de compensation / OCAS",url:"https://www.ocas.ch"},
+    GL:{name:"Sozialversicherungen Glarus",url:"https://www.svgl.ch"},
+    GR:{name:"Sozialversicherungsanstalt Graubünden",url:"https://www.sva.gr.ch"},
+    JU:{name:"Etablissement cantonal des assurances sociales",url:"https://www.ecasjura.ch"},
+    LU:{name:"WAS Ausgleichskasse Luzern",url:"https://www.was-luzern.ch"},
+    NE:{name:"Caisse cantonale neuchâteloise de compensation",url:"https://www.caisseavsne.ch"},
+    NW:{name:"Ausgleichskasse Nidwalden",url:"https://www.aknw.ch"},
+    OW:{name:"Ausgleichskasse / IV-Stelle Obwalden",url:"https://www.akow.ch"},
+    SG:{name:"SVA St.Gallen",url:"https://www.svasg.ch"},
+    SH:{name:"SVA Schaffhausen",url:"https://www.svash.ch"},
+    SO:{name:"Ausgleichskasse des Kantons Solothurn",url:"https://www.akso.ch"},
+    SZ:{name:"SVA Schwyz",url:"https://www.sva-sz.ch"},
+    TG:{name:"Sozialversicherungszentrum Thurgau",url:"https://www.svztg.ch"},
+    TI:{name:"Istituto delle assicurazioni sociali",url:"https://www4.ti.ch/dss/ias"},
+    UR:{name:"Sozialversicherungsstelle Uri",url:"https://www.svsuri.ch"},
+    VD:{name:"Caisse cantonale vaudoise de compensation",url:"https://www.caisseavsvaud.ch"},
+    VS:{name:"Ausgleichskasse des Kantons Wallis",url:"https://www.avs.vs.ch"},
+    ZG:{name:"Ausgleichskasse Zug",url:"https://www.akzug.ch"},
+    ZH:{name:"SVA Zürich",url:"https://www.svazurich.ch"}
+  };
+  const SELF_EMPLOYMENT_APPLICATION_URL = "https://selbststaendig-erwerbend.ch/antrag-stellen";
+  const AHV_OFFICE_DIRECTORY_URL = "https://www.ahv-iv.ch/de/Kontakte/Kantonale-Ausgleichskassen";
   const steps = ["Status","Unterlagen","Daten","Prüfung","Auftrag"];
   const state = {
     step: 1, docs: [], consent: false, scanning: false, ocrStatus: "",
-    person: { firstName:"", lastName:"", street:"", postalCode:"", city:"", email:"", phone:"", maritalStatus:"", employmentStatus:"", employmentEndDate:"" },
+    person: { firstName:"", lastName:"", street:"", postalCode:"", city:"", canton:"", email:"", phone:"", maritalStatus:"", employmentStatus:"", employmentEndDate:"" },
     contactMethod:"Telefon", note:"", leadPrepared:false, orderAccepted:false
   };
   const surface = document.getElementById("surface");
@@ -51,6 +81,17 @@
   const esc = v => String(v ?? "").replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]));
   const money = v => new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:2}).format(Number(v)||0);
   const sum = arr => arr.reduce((a,b)=>a+(Number(b)||0),0);
+  const CANTON_NAMES={AG:"Aargau",AI:"Appenzell Innerrhoden",AR:"Appenzell Ausserrhoden",BE:"Bern",BL:"Basel-Landschaft",BS:"Basel-Stadt",FR:"Freiburg",GE:"Genf",GL:"Glarus",GR:"Graubünden",JU:"Jura",LU:"Luzern",NE:"Neuenburg",NW:"Nidwalden",OW:"Obwalden",SG:"St. Gallen",SH:"Schaffhausen",SO:"Solothurn",SZ:"Schwyz",TG:"Thurgau",TI:"Tessin",UR:"Uri",VD:"Waadt",VS:"Wallis",ZG:"Zug",ZH:"Zürich"};
+  function firstPillarOffice(canton){
+    const code=String(canton||'').toUpperCase();
+    const office=FIRST_PILLAR_OFFICES[code];
+    return office?{canton:code,cantonName:CANTON_NAMES[code]||code,...office,applicationUrl:SELF_EMPLOYMENT_APPLICATION_URL,directoryUrl:AHV_OFFICE_DIRECTORY_URL}:null;
+  }
+  function firstPillarSummaryText(){
+    const o=firstPillarOffice(state.person.canton);
+    if(!o)return '1. Säule / Selbständigkeit: Kanton noch nicht erfasst.';
+    return '1. Säule / Selbständigkeit:\nKanton: '+o.cantonName+' ('+o.canton+')\nZuständige Stelle: '+o.name+'\nKantonale Stelle: '+o.url+'\nAntrag Anerkennung Selbständigerwerbende: '+o.applicationUrl;
+  }
 
   function renderProgress(){
     progress.innerHTML = steps.map((label,i)=>{const n=i+1, cls=n===state.step?'current':n<state.step?'done':''; return `<div class="progress-item ${cls}"><div>${n<state.step?'✓':n}</div><span>${label}</span></div>`}).join('');
@@ -460,6 +501,7 @@
         <label class="full"><span>Strasse / Nr.</span><input id="street" autocomplete="street-address" value="${esc(p.street)}"></label>
         <label><span>PLZ</span><input id="postalCode" inputmode="numeric" maxlength="4" autocomplete="postal-code" value="${esc(p.postalCode)}"></label>
         <label><span>Ort</span><input id="city" autocomplete="address-level2" value="${esc(p.city)}"></label>
+        <label class="full"><span>Kanton</span><select id="canton"><option value="">Bitte wählen</option>${Object.entries(CANTON_NAMES).map(([code,name])=>`<option value="${code}" ${p.canton===code?'selected':''}>${code} · ${name}</option>`).join('')}</select></label>
         <label><span>E-Mail</span><input id="email" type="email" autocomplete="email" value="${esc(p.email)}"></label>
         <label><span>Telefon</span><input id="phone" type="tel" autocomplete="tel" value="${esc(p.phone)}"></label>
         <label class="full"><span>Zivilstand</span><select id="maritalStatus"><option value="">Bitte wählen</option><option ${p.maritalStatus==='ledig'?'selected':''} value="ledig">Ledig / nicht in eingetragener Partnerschaft</option><option ${p.maritalStatus==='verheiratet'?'selected':''} value="verheiratet">Verheiratet / eingetragene Partnerschaft</option><option ${p.maritalStatus==='andere'?'selected':''} value="andere">Andere</option></select></label>
@@ -468,11 +510,11 @@
       <div class="gate-card"><div class="radio-title">Pensionskasse erkannt</div><div class="section-copy">${state.docs.filter(d=>(d.type==='fz'||d.type==='other')&&d.institution).length?'Die passenden Formulare werden von Carlet Finance Coaching übernommen und für Sie vorbereitet.':'Falls eine Pensionskasse vorhanden ist, erfassen wir diese aus Ihren Unterlagen.'}</div></div>
       ${p.maritalStatus==='verheiratet'?'<div class="warning-strip">Bei Barauszahlungen aus der 2. Säule kann eine schriftliche Zustimmung des Ehegatten bzw. der eingetragenen Partnerperson erforderlich sein.</div>':''}
       <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn primary" id="nextBtn">Guthaben berechnen →</button></div>`;
-    const ids=['firstName','lastName','street','postalCode','city','email','phone','maritalStatus']; ids.forEach(id=>document.getElementById(id).oninput=e=>{state.person[id]=e.target.value;if(id==='maritalStatus')renderStep3()});
+    const ids=['firstName','lastName','street','postalCode','city','canton','email','phone','maritalStatus']; ids.forEach(id=>document.getElementById(id).oninput=e=>{state.person[id]=e.target.value;if(id==='maritalStatus')renderStep3()});
     document.getElementById('backBtn').onclick=()=>go(2); document.getElementById('nextBtn').onclick=()=>{syncPerson(); const problem=validateStep3(); if(problem){alert(problem);return} go(4)};
   }
-  function syncPerson(){['firstName','lastName','street','postalCode','city','email','phone','maritalStatus'].forEach(id=>{const el=document.getElementById(id);if(el)state.person[id]=el.value})}
-  function validateStep3(){const p=state.person;if(!p.firstName||!p.lastName||!p.street||!/^[1-9]\d{3}$/.test(p.postalCode)||!p.city||!/^\S+@\S+\.\S+$/.test(p.email)||!p.phone)return'Bitte alle Kontakt- und Adressfelder vollständig ausfüllen.';if(!p.maritalStatus)return'Bitte den Zivilstand auswählen.';return''}
+  function syncPerson(){['firstName','lastName','street','postalCode','city','canton','email','phone','maritalStatus'].forEach(id=>{const el=document.getElementById(id);if(el)state.person[id]=el.value})}
+  function validateStep3(){const p=state.person;if(!p.firstName||!p.lastName||!p.street||!/^[1-9]\d{3}$/.test(p.postalCode)||!p.city||!p.canton||!/^\S+@\S+\.\S+$/.test(p.email)||!p.phone)return'Bitte alle Kontakt- und Adressfelder vollständig ausfüllen.';if(!p.maritalStatus)return'Bitte den Zivilstand auswählen.';return''}
 
   function totals(){const second=sum(state.docs.filter(d=>d.type==='fz'||d.type==='other').map(d=>d.amount)), third=sum(state.docs.filter(d=>d.type==='p3bank'||d.type==='p3insurance').map(d=>d.amount)), total=second+third, fee=total*CONFIG.feeRate,tax=total*CONFIG.taxReserveRate;return{second,third,total,fee,tax,afterFee:total-fee,planning:total-fee-tax}}
   function renderStep4(){const t=totals(); surface.innerHTML=heading('🧮',4,'Übersicht','')+`
@@ -494,7 +536,7 @@
     document.getElementById('nextBtn').onclick=()=>go(5);
   }
 
-  function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nErwerbssituation: ${p.employmentStatus==='active'?'Ungekündigtes Arbeitsverhältnis':p.employmentStatus==='notice'?'Gekündigtes Arbeitsverhältnis / noch tätig':'Arbeitslos / nicht erwerbstätig'}\nAustrittsdatum: ${p.employmentEndDate||'-'}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.institution||'Vorsorgeeinrichtung unbekannt'} – ${(d.files&&d.files.length)||1} Datei(en)/Seite(n)`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nVoraussichtlich auf Konto: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}\n\nINTERNE FORMULAR-LINKS:\n${internalFormLinksText()}`}
+  function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nErwerbssituation: ${p.employmentStatus==='active'?'Ungekündigtes Arbeitsverhältnis':p.employmentStatus==='notice'?'Gekündigtes Arbeitsverhältnis / noch tätig':'Arbeitslos / nicht erwerbstätig'}\nAustrittsdatum: ${p.employmentEndDate||'-'}\nKanton: ${p.canton||'-'}\n\n${firstPillarSummaryText()}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.institution||'Vorsorgeeinrichtung unbekannt'} – ${(d.files&&d.files.length)||1} Datei(en)/Seite(n)`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nVoraussichtlich auf Konto: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}\n\nINTERNE FORMULAR-LINKS:\n${internalFormLinksText()}`}
   function orderPayload(){
     const t=totals(),p=state.person;
     return {
@@ -503,6 +545,8 @@
       person:p,
       employmentStatus:p.employmentStatus,
       employmentEndDate:p.employmentEndDate||'',
+      firstPillarOffice:firstPillarOffice(p.canton),
+      firstPillarSummary:firstPillarSummaryText(),
       documents:state.docs.map(d=>({
         files:(d.files||[d.file]).filter(Boolean).map(f=>f.name),
         type:d.type,typeLabel:docTypeLabel(d.type),amount:d.amount,
@@ -518,7 +562,8 @@
   }
   function orderEmailText(){
     return 'AUFTRAG – CARLET FINANCE COACHING\n\n'+leadText()+
-      '\n\nAUFTRAG DES KUNDEN:\nCarlet Finance Coaching wird beauftragt, die Auszahlung der erfassten Vorsorgegelder vorzubereiten und die erforderlichen Formulare und nächsten Schritte zu bearbeiten. Erforderliche Unterschriften oder Vollmachten werden separat eingeholt.';
+      '\n\nAUFTRAG DES KUNDEN:\nCarlet Finance Coaching wird beauftragt, die Auszahlung der erfassten Vorsorgegelder vorzubereiten und die erforderlichen Formulare und nächsten Schritte zu bearbeiten. Erforderliche Unterschriften oder Vollmachten werden separat eingeholt.'+
+      '\n\nINTERN – 1. SÄULE / AHV:\n'+firstPillarSummaryText();
   }
   async function sendOrder(){
     const payload=orderPayload();
