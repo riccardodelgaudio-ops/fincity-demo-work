@@ -39,11 +39,11 @@
     {name:"Helvetia",keys:["helvetia"],links:[["Barauszahlung Austritts-/Freizügigkeitsleistung","https://www.helvetia.com/corp/wcf/servlets/blankopdf.html?afAcceptLang=de&form=%2Fcontent%2Fforms%2Faf%2Fwcf%2Fch%2Fforms-web%2Fcorporate-customer%2Ffzp%2Ffzp-redemption"]]},
     {name:"Pensionskasse Basel-Stadt (PKBS)",keys:["pensionskasse basel-stadt","pkbs"],links:[["Austritt & Barauszahlung","https://www.pkbs.ch/de/vorsorge/austritt/"]]}
   ];
-  const steps = ["Status","Unterlagen","Daten","Prüfung","Anfrage"];
+  const steps = ["Status","Unterlagen","Daten","Prüfung","Auftrag"];
   const state = {
     step: 1, docs: [], consent: false, scanning: false, ocrStatus: "",
     person: { firstName:"", lastName:"", street:"", postalCode:"", city:"", email:"", phone:"", maritalStatus:"", employmentStatus:"", employmentEndDate:"" },
-    finalConsent: false, contactMethod:"Telefon", note:"", leadPrepared:false
+    contactMethod:"Telefon", note:"", leadPrepared:false, orderAccepted:false
   };
   const surface = document.getElementById("surface");
   const progress = document.getElementById("progress");
@@ -486,29 +486,78 @@
       <div class="breakdown">
         <div class="breakdown-row"><span>Honorar 4%</span><b>− ${money(t.fee)}</b></div>
         <div class="breakdown-row"><span>Steuerreserve ca. 6%</span><b>− ${money(t.tax)}</b></div>
-        <div class="breakdown-row emphasis"><span>Nach Honorar &amp; Reserve</span><b>${money(t.planning)}</b></div>
+        <div class="breakdown-row emphasis"><span>Voraussichtlich auf Ihrem Konto</span><b>${money(t.planning)}</b></div>
       </div>
       <div class="warning-strip">Die 6% Steuerreserve ist unverbindlich. Die tatsächliche Steuer kann abweichen.</div>
-      <label class="consent-card"><input id="finalConsent" type="checkbox" ${state.finalConsent?'checked':''}><span>Beträge geprüft</span></label>
-      <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn primary" id="nextBtn" ${state.finalConsent?'':'disabled'}>Weiter →</button></div>`;
-    document.getElementById('finalConsent').onchange=e=>{state.finalConsent=e.target.checked;document.getElementById('nextBtn').disabled=!state.finalConsent};
+      <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn primary" id="nextBtn">Weiter →</button></div>`;
     document.getElementById('backBtn').onclick=()=>go(3);
     document.getElementById('nextBtn').onclick=()=>go(5);
   }
 
-  function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nErwerbssituation: ${p.employmentStatus==='active'?'Ungekündigtes Arbeitsverhältnis':p.employmentStatus==='notice'?'Gekündigtes Arbeitsverhältnis / noch tätig':'Arbeitslos / nicht erwerbstätig'}\nAustrittsdatum: ${p.employmentEndDate||'-'}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.institution||'Vorsorgeeinrichtung unbekannt'} – ${(d.files&&d.files.length)||1} Datei(en)/Seite(n)`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nPlanungsbetrag: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}\n\nINTERNE FORMULAR-LINKS:\n${internalFormLinksText()}`}
-  function renderStep5(){const t=totals();surface.innerHTML=heading('✓',5,'Kontakt','')+`
-      <div class="lead-card"><h3>${esc(state.person.firstName)} ${esc(state.person.lastName)} · ${money(t.total)}</h3></div>
+  function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nErwerbssituation: ${p.employmentStatus==='active'?'Ungekündigtes Arbeitsverhältnis':p.employmentStatus==='notice'?'Gekündigtes Arbeitsverhältnis / noch tätig':'Arbeitslos / nicht erwerbstätig'}\nAustrittsdatum: ${p.employmentEndDate||'-'}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.institution||'Vorsorgeeinrichtung unbekannt'} – ${(d.files&&d.files.length)||1} Datei(en)/Seite(n)`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nVoraussichtlich auf Konto: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}\n\nINTERNE FORMULAR-LINKS:\n${internalFormLinksText()}`}
+  function orderPayload(){
+    const t=totals(),p=state.person;
+    return {
+      orderType:'Auszahlung Vorsorgegelder 2. und 3. Säule',
+      acceptedAt:new Date().toISOString(),
+      person:p,
+      employmentStatus:p.employmentStatus,
+      employmentEndDate:p.employmentEndDate||'',
+      documents:state.docs.map(d=>({
+        files:(d.files||[d.file]).filter(Boolean).map(f=>f.name),
+        type:d.type,typeLabel:docTypeLabel(d.type),amount:d.amount,
+        institution:d.institution||'',internalFormLinks:fundLinksFor(d.institution)
+      })),
+      totals:t,
+      feeRate:CONFIG.feeRate,
+      taxReserveRate:CONFIG.taxReserveRate,
+      contactMethod:state.contactMethod,
+      note:state.note,
+      internalFormLinks:internalFormLinksText()
+    };
+  }
+  function orderEmailText(){
+    return 'AUFTRAG – CARLET FINANCE COACHING\n\n'+leadText()+
+      '\n\nAUFTRAG DES KUNDEN:\nCarlet Finance Coaching wird beauftragt, die Auszahlung der erfassten Vorsorgegelder vorzubereiten und die erforderlichen Formulare und nächsten Schritte zu bearbeiten. Erforderliche Unterschriften oder Vollmachten werden separat eingeholt.';
+  }
+  async function sendOrder(){
+    const payload=orderPayload();
+    if(CONFIG.leadEndpoint){
+      const res=await fetch(CONFIG.leadEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(!res.ok)throw new Error('Versand fehlgeschlagen');
+      return 'sent';
+    }
+    if(CONFIG.advisorEmail){
+      const subject='Neuer Vorsorge-Auftrag – '+state.person.firstName+' '+state.person.lastName;
+      location.href='mailto:'+encodeURIComponent(CONFIG.advisorEmail)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(orderEmailText());
+      return 'mailto';
+    }
+    throw new Error('Empfänger-E-Mail noch nicht hinterlegt');
+  }
+
+  function renderStep5(){const t=totals();surface.innerHTML=heading('✓',5,'Auftrag','')+`
+      <div class="lead-card"><h3>${esc(state.person.firstName)} ${esc(state.person.lastName)} · ${money(t.planning)} voraussichtlich auf Ihrem Konto</h3></div>
       <label class="select-block"><span>Kontakt</span><select id="contactMethod"><option ${state.contactMethod==='Telefon'?'selected':''}>Telefon</option><option ${state.contactMethod==='E-Mail'?'selected':''}>E-Mail</option><option ${state.contactMethod==='WhatsApp'?'selected':''}>WhatsApp</option></select></label>
       <label class="select-block"><span>Notiz</span><textarea id="note" rows="3" placeholder="Optional">${esc(state.note)}</textarea></label>
-      <button class="btn primary action-main" id="copyBtn">Kopieren</button>
-      <button class="btn soft action-main" id="downloadBtn">Export</button>
+      <label class="consent-card"><input id="orderAccepted" type="checkbox" ${state.orderAccepted?'checked':''}><span>Ich beauftrage Carlet Finance Coaching, die Auszahlung meiner erfassten Vorsorgegelder vorzubereiten und die erforderlichen Schritte für mich zu bearbeiten.</span></label>
+      <button class="btn primary action-main" id="orderBtn" ${state.orderAccepted?'':'disabled'}>Auftrag erteilen</button>
       <div id="doneMsg"></div>
       <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn soft" id="restartBtn">Neu</button></div>`;
     document.getElementById('contactMethod').onchange=e=>{state.contactMethod=e.target.value};
     document.getElementById('note').oninput=e=>{state.note=e.target.value};
-    document.getElementById('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(leadText());document.getElementById('doneMsg').innerHTML='<div class="success-strip">✓ Kopiert</div>'}catch{document.getElementById('doneMsg').innerHTML='<div class="error-strip">Kopieren nicht möglich.</div>'}};
-    document.getElementById('downloadBtn').onclick=()=>{const payload={createdAt:new Date().toISOString(),person:state.person,documents:state.docs.map(d=>({name:d.file?.name||"",files:(d.files||[d.file]).filter(Boolean).map(f=>f.name),type:d.type,typeLabel:docTypeLabel(d.type),amount:d.amount,institution:d.institution||"",internalFormLinks:fundLinksFor(d.institution)})),totals:totals(),internalFormLinks:internalFormLinksText(),feeRate:CONFIG.feeRate,taxReserveRate:CONFIG.taxReserveRate,contactMethod:state.contactMethod,note:state.note};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`carlet-lead-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+    document.getElementById('orderAccepted').onchange=e=>{state.orderAccepted=e.target.checked;document.getElementById('orderBtn').disabled=!state.orderAccepted};
+    document.getElementById('orderBtn').onclick=async()=>{
+      const btn=document.getElementById('orderBtn'),msg=document.getElementById('doneMsg');
+      btn.disabled=true;btn.textContent='Auftrag wird gesendet …';
+      try{
+        const mode=await sendOrder();
+        msg.innerHTML='<div class="success-strip">✓ Auftrag vorbereitet'+(mode==='sent'?' und gesendet.':'. E-Mail-Programm wurde geöffnet.')+'</div>';
+        btn.textContent='Auftrag erteilt';
+      }catch(err){
+        msg.innerHTML='<div class="error-strip">'+esc(err?.message||'Auftrag konnte nicht gesendet werden.')+'</div>';
+        btn.disabled=!state.orderAccepted;btn.textContent='Auftrag erteilen';
+      }
+    };
     document.getElementById('backBtn').onclick=()=>go(4);document.getElementById('restartBtn').onclick=()=>location.reload();
   }
 
