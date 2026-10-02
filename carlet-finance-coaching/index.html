@@ -108,31 +108,7 @@
   }
   function extractAmount(text){
     const anchored=extractAnchoredAmount(text);
-    if(anchored) return anchored;
-
-    const lines=textLines(text);
-    const strong=[['guthaben',16],['stand per',12],['total',6]];
-    const negative=[
-      ['voraussichtliche altersleistungen',-80],['pensionierung im alter',-80],['maximal möglicher einkauf',-70],
-      ['maximaler einkauf',-70],['invalidität',-60],['invalidenrente',-60],['todesfall',-60],['ehegatten',-55],
-      ['partnerschaftsrente',-55],['waisenrente',-55],['jahreslohn',-50],['versicherter lohn',-50],
-      ['sparbeitrag',-45],['risikobeitrag',-45],['beiträge vom versicherten lohn',-45],['obligatorischer teil',-30],
-      ['vorbezug',-25],['jahresbeitrag',-35],['prämie',-35],['monatlich',-30],['zins',-20],
-      ['steuer',-30],['gebühr',-30],['iban',-25],['referenz',-25]
-    ];
-    let best={amount:0,score:-999,line:'',context:'',anchored:false};
-    lines.forEach((line,idx)=>{
-      const ctx=((lines[idx-2]||'')+' '+(lines[idx-1]||'')+' '+line+' '+(lines[idx+1]||'')).toLowerCase();
-      // Never take a projected pension/benefit row as the current balance.
-      if(/voraussichtliche altersleistungen|pensionierung im alter|leistungen im todesfall|maximal möglicher einkauf/i.test(ctx)) return;
-      for(const x of amountsInText(line)){
-        let score=Math.log10(x.amount);
-        strong.forEach(([k,w])=>{if(ctx.includes(k))score+=w});
-        negative.forEach(([k,w])=>{if(ctx.includes(k))score+=w});
-        if(score>best.score) best={amount:x.amount,score,line,context:ctx,anchored:false};
-      }
-    });
-    return best;
+    return anchored || {amount:0,score:0,line:'',context:'',anchored:false};
   }
   function plausiblePersonName(line){
     let s=String(line||'').replace(/\s+/g,' ').trim();
@@ -236,8 +212,8 @@
     const text=String(d.ocrText||'');
     const hit=extractAmount(text);
     const hints=extractPersonHints(text);
-    d.amount=hit.amount||d.amount||0;
-    d.confidence=hit.score;
+    d.amount=hit.amount || (d.amountManual?d.amount:0);
+    d.confidence=hit.score||0;
     d.amountAnchored=!!hit.anchored;
     d.type=classify(text);
     d.institution=extractInstitution(text)||d.institution||'';
@@ -340,6 +316,7 @@
   }
 
   function renderStep2(){
+    const scanComplete=state.docs.length>0&&state.docs.every(d=>d.status==='done');
     const noticeText=state.person.employmentStatus==='notice'
       ? 'Bitte fotografieren Sie oder laden Sie alle Ihre Freizügigkeitspolicen, Freizügigkeitskonten, gebundene Vorsorgen, Versicherungen sowie Banklösungen hoch. Falls Sie noch im gekündigten Arbeitsverhältnis und noch an eine Pensionskasse angeschlossen sind, laden Sie bitte auch Ihren letzten Vorsorgeausweis, also Pensionskassenausweis, hoch.'
       : 'Bitte fotografieren Sie oder laden Sie alle Ihre Freizügigkeitspolicen, Freizügigkeitskonten, gebundene Vorsorgen, Versicherungen sowie Banklösungen hoch.';
@@ -349,12 +326,10 @@
         <button class="btn soft xl" id="filesBtn">Bilder oder PDF wählen</button><input hidden id="filesInput" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
         </div>
       <div class="files-grid" id="filesGrid"></div>
-      <div class="info-strip">🔒 Die Texterkennung läuft im Browser. Dokumentbilder werden von dieser Seite nicht an Carlet Finance Coaching übertragen.</div>
-      <div id="scanStatus">${state.ocrStatus?`<div class="${state.ocrStatus.startsWith('Fehler')?'error-strip':'info-strip'}">${esc(state.ocrStatus)}</div>`:''}</div>
-      <button class="btn primary action-main" id="scanBtn" ${state.scanning||!state.docs.length?'disabled':''}>${state.scanning?'Dokumente werden gelesen …':'Dokumente auslesen & prüfen'}</button>
+      <div id="scanStatus">${(state.scanning||state.ocrStatus.startsWith('Fehler'))&&state.ocrStatus?`<div class="${state.ocrStatus.startsWith('Fehler')?'error-strip':'info-strip'}">${esc(state.ocrStatus)}</div>`:''}</div>
+      <button class="btn ${scanComplete?'soft':'primary'} action-main" id="scanBtn" ${state.scanning||!state.docs.length?'disabled':''}>${state.scanning?'Dokumente werden gelesen …':scanComplete?'Erneut auslesen':'Dokumente auslesen & prüfen'}</button>
       <button class="btn soft action-main" id="statusBackBtn">← Erwerbssituation ändern</button>
-      <button class="btn primary action-main" id="nextBtn" ${state.docs.length && state.docs.every(d=>Number(d.amount)>0)?'':'disabled'}>Weiter zu den Daten →</button>
-      <p class="microcopy">Automatische Erkennung kann Fehler enthalten. Massgebend sind die Originalunterlagen und die Prüfung durch die jeweilige Vorsorgeeinrichtung.</p>`;
+      <button class="btn primary action-main" id="nextBtn" ${state.docs.length && state.docs.every(d=>Number(d.amount)>0)?'':'disabled'}>Weiter zu den Daten →</button> `;
     wireStep1(); renderFiles();
   }
   function renderFiles(){
@@ -370,7 +345,7 @@
       <label class="amount-field"><span>Erkanntes Guthaben</span><input inputmode="decimal" data-amount="${i}" value="${d.amount?esc(String(d.amount)):''}" placeholder="0.00"></label>
       <label style="grid-column:1/-1"><span>Pensionskasse / Vorsorgeeinrichtung</span><input data-institution="${i}" value="${esc(d.institution||'')}" placeholder="z.B. BVK, PKZH, Profond …"></label></div>
       ${pageCount>1?'<div class="success-strip">✓ '+pageCount+' Aufnahmen wurden zusammengeführt. Guthaben nur einmal gezählt.</div>':''}
-      ${d.status==='done'&&!d.amountAnchored?'<div class="warning-strip">Betrag bitte kurz prüfen.</div>':''}
+      ${d.status==='done'&&!d.amountAnchored?'<div class="warning-strip">Guthaben nicht eindeutig erkannt – bitte Betrag eintragen.</div>':''}
       ${(d.type==='fz'||d.type==='other')?fundCustomerHtml(d.institution):''}
     </div>`}).join('');
     grid.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{
@@ -379,7 +354,7 @@
       state.docs.splice(i,1); renderStep2();
     });
     grid.querySelectorAll('[data-type]').forEach(el=>el.onchange=e=>state.docs[Number(el.dataset.type)].type=e.target.value);
-    grid.querySelectorAll('[data-amount]').forEach(el=>el.oninput=e=>{state.docs[Number(el.dataset.amount)].amount=parseAmount(e.target.value); document.getElementById('nextBtn').disabled=!state.docs.length||!state.docs.every(d=>Number(d.amount)>0)});
+    grid.querySelectorAll('[data-amount]').forEach(el=>el.oninput=e=>{const d=state.docs[Number(el.dataset.amount)];d.amount=parseAmount(e.target.value);d.amountManual=true;document.getElementById('nextBtn').disabled=!state.docs.length||!state.docs.every(d=>Number(d.amount)>0)});
     grid.querySelectorAll('[data-institution]').forEach(el=>el.onchange=e=>{state.docs[Number(el.dataset.institution)].institution=e.target.value.trim();renderFiles()});
   }
   function wireStep1(){
@@ -394,7 +369,7 @@
     [...(list||[])].forEach(file=>{
       if(!/^image\//.test(file.type)&&file.type!=='application/pdf')return;
       const preview=/^image\//.test(file.type)?URL.createObjectURL(file):'';
-      state.docs.push({file,files:[file],preview,previews:preview?[preview]:[],type:'fz',amount:0,status:'idle',confidence:0,institution:'',ocrText:'',personHints:{},identity:{}});
+      state.docs.push({file,files:[file],preview,previews:preview?[preview]:[],type:'fz',amount:0,amountManual:false,status:'idle',confidence:0,institution:'',ocrText:'',personHints:{},identity:{}});
     });
     state.ocrStatus=''; renderStep2();
   }
@@ -472,7 +447,7 @@
       // Phase 2: combine pages belonging to one certificate, then extract values once.
       state.ocrStatus='Zusammengehörige Seiten werden erkannt …';
       mergeRecognizedDocs();
-      state.ocrStatus='Erkennung abgeschlossen. Mehrseitige Ausweise wurden zusammengeführt. Bitte Guthaben und Angaben kurz kontrollieren.';
+      state.ocrStatus='';
     }catch(err){state.ocrStatus='Fehler: '+(err?.message||'Texterkennung fehlgeschlagen. Beträge können manuell eingetragen werden.');}
     finally{state.scanning=false; renderStep2();}
   }
