@@ -132,11 +132,14 @@
       <div class="file-meta"><strong>Dokument ${i+1}</strong><span>${esc(d.file.name)}</span><small>${d.status==='done'?'✓ erkannt':d.status==='scanning'?'wird gelesen …':'noch nicht gelesen'}${d.confidence?` · Treffer ${Math.round(Math.min(99,d.confidence*6))}%`:''}</small></div>
       <button class="icon-button" data-remove="${i}" aria-label="Dokument entfernen">×</button></div>
       <div class="doc-fields"><label><span>Dokumentart</span><select data-type="${i}"><option value="fz" ${d.type==='fz'?'selected':''}>Freizügigkeit / 2. Säule</option><option value="p3bank" ${d.type==='p3bank'?'selected':''}>Säule 3a · Bank</option><option value="p3insurance" ${d.type==='p3insurance'?'selected':''}>Säule 3a · Versicherung</option><option value="other" ${d.type==='other'?'selected':''}>Anderes Vorsorgeguthaben</option></select></label>
-      <label class="amount-field"><span>Erkanntes Guthaben</span><input inputmode="decimal" data-amount="${i}" value="${d.amount?esc(String(d.amount)):''}" placeholder="0.00"></label></div>
+      <label class="amount-field"><span>Erkanntes Guthaben</span><input inputmode="decimal" data-amount="${i}" value="${d.amount?esc(String(d.amount)):''}" placeholder="0.00"></label>
+      <label style="grid-column:1/-1"><span>Pensionskasse / Vorsorgeeinrichtung</span><input data-institution="${i}" value="${esc(d.institution||'')}" placeholder="z.B. BVK, PKZH, Profond …"></label></div>
+      ${(d.type==='fz'||d.type==='other')?fundLinksHtml(d.institution):''}
     </div>`).join('');
     grid.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.remove); const d=state.docs[i]; if(d?.preview&&d.preview.startsWith('blob:')) URL.revokeObjectURL(d.preview); state.docs.splice(i,1); renderStep1();});
     grid.querySelectorAll('[data-type]').forEach(el=>el.onchange=e=>state.docs[Number(el.dataset.type)].type=e.target.value);
     grid.querySelectorAll('[data-amount]').forEach(el=>el.oninput=e=>{state.docs[Number(el.dataset.amount)].amount=parseAmount(e.target.value); document.getElementById('nextBtn').disabled=!state.docs.length||!state.docs.every(d=>Number(d.amount)>0)});
+    grid.querySelectorAll('[data-institution]').forEach(el=>el.onchange=e=>{state.docs[Number(el.dataset.institution)].institution=e.target.value.trim();renderFiles()});
   }
   function wireStep1(){
     const cam=document.getElementById('cameraInput'), files=document.getElementById('filesInput');
@@ -147,7 +150,7 @@
     document.getElementById('nextBtn').onclick=()=>go(2);
   }
   function addFiles(list){
-    [...(list||[])].forEach(file=>{if(!/^image\//.test(file.type)&&file.type!=='application/pdf')return; state.docs.push({file,preview:/^image\//.test(file.type)?URL.createObjectURL(file):'',type:'fz',amount:0,status:'idle',confidence:0});}); state.ocrStatus=''; renderStep1();
+    [...(list||[])].forEach(file=>{if(!/^image\//.test(file.type)&&file.type!=='application/pdf')return; state.docs.push({file,preview:/^image\//.test(file.type)?URL.createObjectURL(file):'',type:'fz',amount:0,status:'idle',confidence:0,institution:''});}); state.ocrStatus=''; renderStep1();
   }
   async function ensureWorker(){
     if(worker) return worker; if(!window.Tesseract) throw new Error('OCR-Bibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen.');
@@ -169,7 +172,7 @@
         const d=state.docs[i]; if(d.status==='done'&&d.amount>0) continue; d.status='scanning'; state.ocrStatus=`Dokument ${i+1} von ${state.docs.length} wird gelesen …`; renderStep1();
         const canvases=d.file.type==='application/pdf'?await pdfCanvases(d.file):[await imageCanvas(d.file)]; let text='';
         for(let p=0;p<canvases.length;p++){state.ocrStatus=`Dokument ${i+1}, Seite ${p+1} wird gelesen …`; const r=await w.recognize(canvases[p]); text+='\n'+(r?.data?.text||'');}
-        const hit=extractAmount(text); d.amount=hit.amount||d.amount; d.confidence=hit.score; d.type=classify(text); d.status='done'; mergeHints(extractPersonHints(text));
+        const hit=extractAmount(text); d.amount=hit.amount||d.amount; d.confidence=hit.score; d.type=classify(text); d.institution=extractInstitution(text)||d.institution; d.status='done'; mergeHints(extractPersonHints(text));
       }
       state.ocrStatus='Erkennung abgeschlossen. Bitte Dokumentart und Guthaben je Dokument kontrollieren.';
     }catch(err){state.ocrStatus='Fehler: '+(err?.message||'Texterkennung fehlgeschlagen. Beträge können manuell eingetragen werden.');}
