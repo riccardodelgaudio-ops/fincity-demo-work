@@ -67,37 +67,69 @@
     s=s.replace(/[^0-9.]/g,''); const n=Number(s); return Number.isFinite(n)?n:0;
   }
   function textLines(text){return String(text||'').split(/\n+/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean)}
-  function extractAmount(text){
+  function amountsInText(s){
+    const rx=/(?:CHF|Fr\.?|SFr\.?)?\s*(\d{1,3}(?:[ '\u2019.]’?\d{3})+(?:[.,]\d{1,2})?|\d{4,8}(?:[.,]\d{1,2})?)\s*(?:CHF|Fr\.?|SFr\.?|\.–|-)?/gi;
+    const out=[]; let m;
+    while((m=rx.exec(String(s||'')))){
+      const amount=parseAmount(m[1]);
+      if(amount>=500 && !(amount>=1900&&amount<=2100)) out.push({amount,index:m.index,raw:m[0]});
+    }
+    return out;
+  }
+  function extractAnchoredAmount(text){
     const lines=textLines(text);
-    const strong=[
-      ['sparguthaben per',42],['aktuelles sparguthaben',38],['freizügigkeitsleistung',38],['austrittsleistung',38],
-      ['vorsorgeguthaben',34],['kontoguthaben',32],['rückkaufswert',32],['policenwert',30],['altersguthaben',28],
-      ['sparguthaben',24],['saldo',20],['guthaben',16],['stand per',12],['total',6]
+    const anchors=[
+      /sparguthaben\s+per/i,
+      /aktuelles\s+sparguthaben/i,
+      /freizügigkeitsleistung/i,
+      /austrittsleistung/i,
+      /vorsorgeguthaben(?:\s+per)?/i,
+      /kontoguthaben(?:\s+per)?/i,
+      /rückkaufswert/i,
+      /policenwert/i,
+      /altersguthaben(?:\s+per)?/i,
+      /saldo(?:\s+per)?/i
     ];
+    for(let i=0;i<lines.length;i++){
+      const line=lines[i];
+      const anchor=anchors.find(rx=>rx.test(line));
+      if(!anchor) continue;
+      const labelPos=line.search(anchor);
+      const same=amountsInText(line).filter(x=>x.index>labelPos);
+      if(same.length) return {amount:same[0].amount,score:100,line,context:line,anchored:true};
+      // OCR may split label and amount over two lines.
+      for(let j=i+1;j<=Math.min(i+2,lines.length-1);j++){
+        if(/voraussichtliche\s+altersleistungen|pensionierung\s+im\s+alter|maximal\s+möglicher\s+einkauf|leistungen\s+im\s+todesfall/i.test(lines[j])) break;
+        const next=amountsInText(lines[j]);
+        if(next.length) return {amount:next[0].amount,score:95,line:lines[j],context:line+' '+lines[j],anchored:true};
+      }
+    }
+    return null;
+  }
+  function extractAmount(text){
+    const anchored=extractAnchoredAmount(text);
+    if(anchored) return anchored;
+
+    const lines=textLines(text);
+    const strong=[['guthaben',16],['stand per',12],['total',6]];
     const negative=[
-      ['voraussichtliche altersleistungen',-42],['pensionierung im alter',-38],['maximal möglicher einkauf',-34],
-      ['maximaler einkauf',-34],['invalidität',-30],['invalidenrente',-30],['todesfall',-30],['ehegatten',-26],
-      ['partnerschaftsrente',-26],['waisenrente',-26],['jahreslohn',-26],['versicherter lohn',-26],
-      ['sparbeitrag',-22],['risikobeitrag',-22],['beiträge vom versicherten lohn',-24],['obligatorischer teil',-18],
-      ['vorbezug',-10],['jahresbeitrag',-22],['prämie',-22],['monatlich',-18],['zins',-10],
-      ['steuer',-20],['gebühr',-18],['iban',-18],['referenz',-18]
+      ['voraussichtliche altersleistungen',-80],['pensionierung im alter',-80],['maximal möglicher einkauf',-70],
+      ['maximaler einkauf',-70],['invalidität',-60],['invalidenrente',-60],['todesfall',-60],['ehegatten',-55],
+      ['partnerschaftsrente',-55],['waisenrente',-55],['jahreslohn',-50],['versicherter lohn',-50],
+      ['sparbeitrag',-45],['risikobeitrag',-45],['beiträge vom versicherten lohn',-45],['obligatorischer teil',-30],
+      ['vorbezug',-25],['jahresbeitrag',-35],['prämie',-35],['monatlich',-30],['zins',-20],
+      ['steuer',-30],['gebühr',-30],['iban',-25],['referenz',-25]
     ];
-    const rx=/(?:CHF|Fr\.?|SFr\.?)?\s*(\d{1,3}(?:[ '\u2019.]\d{3})+(?:[.,]\d{1,2})?|\d{4,8}(?:[.,]\d{1,2})?)\s*(?:CHF|Fr\.?|SFr\.?|\.–|-)?/gi;
-    let best={amount:0,score:-999,line:'',context:''};
+    let best={amount:0,score:-999,line:'',context:'',anchored:false};
     lines.forEach((line,idx)=>{
       const ctx=((lines[idx-2]||'')+' '+(lines[idx-1]||'')+' '+line+' '+(lines[idx+1]||'')).toLowerCase();
-      let m; rx.lastIndex=0;
-      while((m=rx.exec(line))){
-        const amount=parseAmount(m[1]);
-        if(amount<500 || (amount>=1900&&amount<=2100)) continue;
-        let score=Math.log10(amount);
+      // Never take a projected pension/benefit row as the current balance.
+      if(/voraussichtliche altersleistungen|pensionierung im alter|leistungen im todesfall|maximal möglicher einkauf/i.test(ctx)) return;
+      for(const x of amountsInText(line)){
+        let score=Math.log10(x.amount);
         strong.forEach(([k,w])=>{if(ctx.includes(k))score+=w});
         negative.forEach(([k,w])=>{if(ctx.includes(k))score+=w});
-        // Exact current-balance rows are preferred over rounded planning/benefit values.
-        if(/sparguthaben\s+per/i.test(line)) score+=30;
-        if(/freizügigkeitsleistung|austrittsleistung/i.test(line)) score+=22;
-        if(/maximal möglicher vorbezug/i.test(line)) score-=12;
-        if(score>best.score) best={amount,score,line,context:ctx};
+        if(score>best.score) best={amount:x.amount,score,line,context:ctx,anchored:false};
       }
     });
     return best;
@@ -206,6 +238,7 @@
     const hints=extractPersonHints(text);
     d.amount=hit.amount||d.amount||0;
     d.confidence=hit.score;
+    d.amountAnchored=!!hit.anchored;
     d.type=classify(text);
     d.institution=extractInstitution(text)||d.institution||'';
     d.personHints=hints;
@@ -336,7 +369,8 @@
       <div class="doc-fields"><label><span>Dokumentart</span><select data-type="${i}"><option value="fz" ${d.type==='fz'?'selected':''}>Freizügigkeit / 2. Säule</option><option value="p3bank" ${d.type==='p3bank'?'selected':''}>Säule 3a · Bank</option><option value="p3insurance" ${d.type==='p3insurance'?'selected':''}>Säule 3a · Versicherung</option><option value="other" ${d.type==='other'?'selected':''}>Anderes Vorsorgeguthaben</option></select></label>
       <label class="amount-field"><span>Erkanntes Guthaben</span><input inputmode="decimal" data-amount="${i}" value="${d.amount?esc(String(d.amount)):''}" placeholder="0.00"></label>
       <label style="grid-column:1/-1"><span>Pensionskasse / Vorsorgeeinrichtung</span><input data-institution="${i}" value="${esc(d.institution||'')}" placeholder="z.B. BVK, PKZH, Profond …"></label></div>
-      ${pageCount>1?'<div class="success-strip">✓ '+pageCount+' Aufnahmen wurden zu einem Dokument zusammengeführt. Das Guthaben wird nur einmal gezählt.</div>':''}
+      ${pageCount>1?'<div class="success-strip">✓ '+pageCount+' Aufnahmen wurden zusammengeführt. Guthaben nur einmal gezählt.</div>':''}
+      ${d.status==='done'&&!d.amountAnchored?'<div class="warning-strip">Betrag bitte kurz prüfen.</div>':''}
       ${(d.type==='fz'||d.type==='other')?fundCustomerHtml(d.institution):''}
     </div>`}).join('');
     grid.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{
@@ -466,26 +500,36 @@
   function validateStep3(){const p=state.person;if(!p.firstName||!p.lastName||!p.street||!/^[1-9]\d{3}$/.test(p.postalCode)||!p.city||!/^\S+@\S+\.\S+$/.test(p.email)||!p.phone)return'Bitte alle Kontakt- und Adressfelder vollständig ausfüllen.';if(!p.maritalStatus)return'Bitte den Zivilstand auswählen.';return''}
 
   function totals(){const second=sum(state.docs.filter(d=>d.type==='fz'||d.type==='other').map(d=>d.amount)), third=sum(state.docs.filter(d=>d.type==='p3bank'||d.type==='p3insurance').map(d=>d.amount)), total=second+third, fee=total*CONFIG.feeRate,tax=total*CONFIG.taxReserveRate;return{second,third,total,fee,tax,afterFee:total-fee,planning:total-fee-tax}}
-  function renderStep4(){const t=totals(); surface.innerHTML=heading('🧮',4,'Guthaben & Kostenübersicht','Alle erfassten Freizügigkeits- und Säule-3a-Guthaben werden zusammengerechnet. Bitte die Werte vor der Anfrage nochmals prüfen.')+`
+  function renderStep4(){const t=totals(); surface.innerHTML=heading('🧮',4,'Übersicht','')+`
       <div class="docs-summary">${state.docs.map((d,i)=>`<div class="docs-summary-row"><div><b>${docTypeLabel(d.type)}</b><small>${esc((d.institution?d.institution+' · ':'')+(((d.files&&d.files.length)||1)>1?((d.files&&d.files.length)||1)+' Bilder/Seiten':'1 Datei'))}</small></div><b>${money(d.amount)}</b></div>`).join('')}</div>
-      <div class="summary-grid"><div class="summary-card"><small>2. Säule / Freizügigkeit</small><b>${money(t.second)}</b><span>erfasste Guthaben</span></div><div class="summary-card"><small>Säule 3a</small><b>${money(t.third)}</b><span>Bank &amp; Versicherung</span></div><div class="summary-card total"><small>Gesamtes erfasstes Guthaben</small><b>${money(t.total)}</b><span>vor Honorar und Steuern</span></div><div class="summary-card green"><small>Nach 4% Carlet-Honorar</small><b>${money(t.afterFee)}</b><span>Steuern noch nicht berücksichtigt</span></div></div>
-      <div class="breakdown"><div class="breakdown-row"><span>Carlet Finance Coaching · Honorar 4%</span><b>− ${money(t.fee)}</b></div><div class="breakdown-row"><span>Unverbindliche Steuerreserve ca. 6%</span><b>− ${money(t.tax)}</b></div><div class="breakdown-row emphasis"><span>Planungsbetrag nach Honorar + 6%-Reserve</span><b>${money(t.planning)}</b></div></div>
-      <div class="warning-strip"><b>Steuerhinweis:</b> Die 6% sind nur eine Planungsannahme. Die tatsächliche Kapitalleistungssteuer ist separat geschuldet und hängt unter anderem von Wohnort, Betrag, Zivilstand und Auszahlungszeitpunkt ab. Sie ist nicht Bestandteil des 4%-Honorars.</div>
-      <div class="info-strip"><b>Bezugsprüfung:</b> Die dargestellten Guthaben sind keine Auszahlungszusage. Freizügigkeits- und Säule-3a-Bezüge werden von den jeweiligen Einrichtungen anhand der gesetzlichen Voraussetzungen und Nachweise geprüft.</div>
-      <label class="consent-card"><input id="finalConsent" type="checkbox" ${state.finalConsent?'checked':''}><span>Ich habe die erfassten Guthaben kontrolliert und verstanden, dass Steuer und Bezugsberechtigung erst definitiv geprüft werden.</span></label>
-      <div class="footer-actions"><button class="btn soft" id="backBtn">← Daten ändern</button><button class="btn primary" id="nextBtn" ${state.finalConsent?'':'disabled'}>Beratung anfragen →</button></div>`;
-    document.getElementById('finalConsent').onchange=e=>{state.finalConsent=e.target.checked;document.getElementById('nextBtn').disabled=!state.finalConsent}; document.getElementById('backBtn').onclick=()=>go(3);document.getElementById('nextBtn').onclick=()=>go(5);
+      <div class="summary-grid">
+        <div class="summary-card"><small>2. Säule</small><b>${money(t.second)}</b></div>
+        <div class="summary-card"><small>Säule 3a</small><b>${money(t.third)}</b></div>
+        <div class="summary-card total"><small>Gesamt</small><b>${money(t.total)}</b></div>
+        <div class="summary-card green"><small>Nach 4% Honorar</small><b>${money(t.afterFee)}</b></div>
+      </div>
+      <div class="breakdown">
+        <div class="breakdown-row"><span>Honorar 4%</span><b>− ${money(t.fee)}</b></div>
+        <div class="breakdown-row"><span>Steuerreserve ca. 6%</span><b>− ${money(t.tax)}</b></div>
+        <div class="breakdown-row emphasis"><span>Nach Honorar &amp; Reserve</span><b>${money(t.planning)}</b></div>
+      </div>
+      <div class="warning-strip">Die 6% Steuerreserve ist unverbindlich. Die tatsächliche Steuer kann abweichen.</div>
+      <label class="consent-card"><input id="finalConsent" type="checkbox" ${state.finalConsent?'checked':''}><span>Beträge geprüft</span></label>
+      <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn primary" id="nextBtn" ${state.finalConsent?'':'disabled'}>Weiter →</button></div>`;
+    document.getElementById('finalConsent').onchange=e=>{state.finalConsent=e.target.checked;document.getElementById('nextBtn').disabled=!state.finalConsent};
+    document.getElementById('backBtn').onclick=()=>go(3);
+    document.getElementById('nextBtn').onclick=()=>go(5);
   }
 
   function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nErwerbssituation: ${p.employmentStatus==='active'?'Ungekündigtes Arbeitsverhältnis':p.employmentStatus==='notice'?'Gekündigtes Arbeitsverhältnis / noch tätig':'Arbeitslos / nicht erwerbstätig'}\nAustrittsdatum: ${p.employmentEndDate||'-'}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.institution||'Vorsorgeeinrichtung unbekannt'} – ${(d.files&&d.files.length)||1} Datei(en)/Seite(n)`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nPlanungsbetrag: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}\n\nINTERNE FORMULAR-LINKS:\n${internalFormLinksText()}`}
-  function renderStep5(){const t=totals();surface.innerHTML=heading('✓',5,'Anfrage','')+`
+  function renderStep5(){const t=totals();surface.innerHTML=heading('✓',5,'Kontakt','')+`
       <div class="lead-card"><h3>${esc(state.person.firstName)} ${esc(state.person.lastName)} · ${money(t.total)}</h3></div>
       <label class="select-block"><span>Kontakt</span><select id="contactMethod"><option ${state.contactMethod==='Telefon'?'selected':''}>Telefon</option><option ${state.contactMethod==='E-Mail'?'selected':''}>E-Mail</option><option ${state.contactMethod==='WhatsApp'?'selected':''}>WhatsApp</option></select></label>
       <label class="select-block"><span>Notiz</span><textarea id="note" rows="3" placeholder="Optional">${esc(state.note)}</textarea></label>
-      <button class="btn primary action-main" id="copyBtn">Anfrage kopieren</button>
-      <button class="btn soft action-main" id="downloadBtn">JSON exportieren</button>
+      <button class="btn primary action-main" id="copyBtn">Kopieren</button>
+      <button class="btn soft action-main" id="downloadBtn">Export</button>
       <div id="doneMsg"></div>
-      <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn soft" id="restartBtn">Neu starten</button></div>`;
+      <div class="footer-actions"><button class="btn soft" id="backBtn">← Zurück</button><button class="btn soft" id="restartBtn">Neu</button></div>`;
     document.getElementById('contactMethod').onchange=e=>{state.contactMethod=e.target.value};
     document.getElementById('note').oninput=e=>{state.note=e.target.value};
     document.getElementById('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(leadText());document.getElementById('doneMsg').innerHTML='<div class="success-strip">✓ Kopiert</div>'}catch{document.getElementById('doneMsg').innerHTML='<div class="error-strip">Kopieren nicht möglich.</div>'}};
