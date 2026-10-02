@@ -154,16 +154,18 @@
   }
 
   function renderStep2(){
-    surface.innerHTML = heading('📄',2,'Unterlagen','') + `
+    const noticeText=state.person.employmentStatus==='notice'
+      ? 'Bitte fotografieren Sie oder laden Sie alle Ihre Freizügigkeitspolicen, Freizügigkeitskonten, gebundene Vorsorgen, Versicherungen sowie Banklösungen hoch. Falls Sie noch im gekündigten Arbeitsverhältnis und noch an eine Pensionskasse angeschlossen sind, laden Sie bitte auch Ihren letzten Vorsorgeausweis, also Pensionskassenausweis, hoch.'
+      : 'Bitte fotografieren Sie oder laden Sie alle Ihre Freizügigkeitspolicen, Freizügigkeitskonten, gebundene Vorsorgen, Versicherungen sowie Banklösungen hoch.';
+    surface.innerHTML = heading('📄',2,'Unterlagen',noticeText) + `
       <div class="upload-zone"><div class="upload-visual">📷</div><h3>Foto oder PDF hinzufügen</h3>
         <button class="btn primary xl" id="cameraBtn">Foto aufnehmen</button><input hidden id="cameraInput" type="file" accept="image/*" capture="environment">
         <button class="btn soft xl" id="filesBtn">Bilder oder PDF wählen</button><input hidden id="filesInput" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
         </div>
       <div class="files-grid" id="filesGrid"></div>
       <div class="info-strip">🔒 Die Texterkennung läuft im Browser. Dokumentbilder werden von dieser Seite nicht an Carlet Finance Coaching übertragen.</div>
-      <label class="consent-card"><input id="consent" type="checkbox" ${state.consent?'checked':''}><span>Ich stimme der lokalen Texterkennung zu und prüfe die automatisch erkannten Beträge vor dem Weiterfahren.</span></label>
       <div id="scanStatus">${state.ocrStatus?`<div class="${state.ocrStatus.startsWith('Fehler')?'error-strip':'info-strip'}">${esc(state.ocrStatus)}</div>`:''}</div>
-      <button class="btn primary action-main" id="scanBtn" ${state.scanning||!state.docs.length||!state.consent?'disabled':''}>${state.scanning?'Dokumente werden gelesen …':'Dokumente auslesen & prüfen'}</button>
+      <button class="btn primary action-main" id="scanBtn" ${state.scanning||!state.docs.length?'disabled':''}>${state.scanning?'Dokumente werden gelesen …':'Dokumente auslesen & prüfen'}</button>
       <button class="btn soft action-main" id="statusBackBtn">← Erwerbssituation ändern</button>
       <button class="btn primary action-main" id="nextBtn" ${state.docs.length && state.docs.every(d=>Number(d.amount)>0)?'':'disabled'}>Weiter zu den Daten →</button>
       <p class="microcopy">Automatische Erkennung kann Fehler enthalten. Massgebend sind die Originalunterlagen und die Prüfung durch die jeweilige Vorsorgeeinrichtung.</p>`;
@@ -189,7 +191,6 @@
     const cam=document.getElementById('cameraInput'), files=document.getElementById('filesInput');
     document.getElementById('cameraBtn').onclick=()=>cam.click(); document.getElementById('filesBtn').onclick=()=>files.click();
     cam.onchange=e=>addFiles(e.target.files); files.onchange=e=>addFiles(e.target.files);
-    document.getElementById('consent').onchange=e=>{state.consent=e.target.checked; document.getElementById('scanBtn').disabled=state.scanning||!state.docs.length||!state.consent};
     document.getElementById('scanBtn').onclick=scanAll;
     document.getElementById('statusBackBtn').onclick=()=>go(1);
     document.getElementById('nextBtn').onclick=()=>go(3);
@@ -210,7 +211,7 @@
     for(let n=1;n<=max;n++){const page=await pdf.getPage(n),vp=page.getViewport({scale:1.65}),c=document.createElement('canvas');c.width=Math.round(vp.width);c.height=Math.round(vp.height);await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;pages.push(c);} return pages;
   }
   async function scanAll(){
-    if(!state.consent||!state.docs.length)return; state.scanning=true; state.ocrStatus='Texterkennung wird vorbereitet …'; renderStep2();
+    if(!state.docs.length)return; state.scanning=true; state.ocrStatus='Texterkennung wird vorbereitet …'; renderStep2();
     try{
       const w=await ensureWorker();
       for(let i=0;i<state.docs.length;i++){
