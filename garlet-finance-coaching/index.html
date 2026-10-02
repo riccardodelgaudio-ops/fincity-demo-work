@@ -90,6 +90,23 @@
     return {postalCode,city,street};
   }
   function mergeHints(h){ ['postalCode','city','street'].forEach(k=>{if(!state.person[k]&&h[k]) state.person[k]=h[k]}) }
+  function cleanInstitutionCandidate(s){return String(s||'').replace(/\s+/g,' ').replace(/^[^A-Za-zÄÖÜÀ-ÿ]+|[^A-Za-zÄÖÜÀ-ÿ0-9)]+$/g,'').trim().slice(0,100)}
+  function fundMatch(nameOrText){
+    const t=String(nameOrText||'').toLocaleLowerCase('de-CH').normalize('NFKD').replace(/[\u0300-\u036f]/g,'');
+    return PENSION_FUNDS.find(f=>f.keys.some(k=>t.includes(k.toLocaleLowerCase('de-CH').normalize('NFKD').replace(/[\u0300-\u036f]/g,''))))||null;
+  }
+  function extractInstitution(text){
+    const known=fundMatch(text); if(known) return known.name;
+    const lines=String(text||'').split(/\n+/).map(cleanInstitutionCandidate).filter(Boolean);
+    const hit=lines.find(x=>/(pensionskasse|vorsorgeeinrichtung|sammelstiftung|freizügigkeitsstiftung|personalvorsorge|vorsorgestiftung)/i.test(x)&&x.length<100);
+    return hit||'';
+  }
+  function fundLinksHtml(institution){
+    const name=String(institution||'').trim(); if(!name)return '';
+    const found=fundMatch(name);
+    const links=found?found.links:[["Offizielle Formularseite suchen","https://www.google.com/search?q="+encodeURIComponent(name+' Barauszahlung selbständige Erwerbstätigkeit Formular Schweiz')]];
+    return '<div class="fund-detected"><b>Erkannte Vorsorgeeinrichtung: '+esc(name)+'</b><small>'+(found?'Passende offizielle Seiten/Formulare sind hinterlegt.':'Noch kein fixer Formular-Link hinterlegt. Die Suche wird mit dem erkannten Namen vorbereitet.')+'</small><div class="fund-actions">'+links.map(([label,url])=>'<a class="fund-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">↗ '+esc(label)+'</a>').join('')+'</div></div>';
+  }
 
   function render(){renderProgress(); if(state.step===1) renderStep1(); if(state.step===2) renderStep2(); if(state.step===3) renderStep3(); if(state.step===4) renderStep4();}
 
