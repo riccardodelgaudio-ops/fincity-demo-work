@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#102a43" />
 <meta name="robots" content="noindex,nofollow" />
-<title>Garlet Finance Coaching – Vorsorgebezug vorbereiten</title>
+<title>Carlet Finance Coaching – Vorsorgebezug vorbereiten</title>
 <meta name="description" content="Vorsorgeunterlagen fotografieren, Guthaben prüfen und Beratung zum Bezug von Freizügigkeits- und Säule-3a-Guthaben vorbereiten." />
 <style>
 :root{--navy:#102a43;--blue:#3157d5;--blue2:#5e7bf2;--sky:#eef4ff;--ink:#182230;--muted:#667085;--line:#dbe4f0;--card:#fdfefe;--mint:#e7f8f1;--green:#087a55;--cream:#fff8ef;--warn:#8a4b13;--red:#a02828;--shadow:0 22px 70px #162a5021;--radius:28px}
@@ -17,7 +17,7 @@
 <body>
 <main class="app-shell">
   <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
-  <header class="topbar"><div class="brand-lockup"><div class="brand-icon">GC</div><div><strong>Garlet Finance Coaching</strong><span>Vorsorgebezug · Schweiz</span></div></div></header>
+  <header class="topbar"><div class="brand-lockup"><div class="brand-icon">CC</div><div><strong>Carlet Finance Coaching</strong><span>Vorsorgebezug · Schweiz</span></div></div></header>
   <section class="hero-card">
     <div class="eyebrow">VORSORGEGUTHABEN PRÜFEN</div>
     <div class="hero-speedline">Freizügigkeit &amp; Säule 3a erfassen, Voraussetzungen prüfen und Bezug vorbereiten.</div>
@@ -25,7 +25,7 @@
   </section>
   <nav class="progress-card" id="progress"></nav>
   <section class="surface" id="surface"></section>
-  <footer>Garlet Finance Coaching · Beratungs-Prototyp · Daten bleiben in diesem Browser</footer>
+  <footer>Carlet Finance Coaching · Beratungs-Prototyp · Daten bleiben in diesem Browser</footer>
 </main>
 <script>
 (() => {
@@ -33,7 +33,7 @@
   const steps = ["Unterlagen","Daten","Prüfung","Anfrage"];
   const state = {
     step: 1, docs: [], consent: false, scanning: false, ocrStatus: "",
-    person: { firstName:"", lastName:"", street:"", postalCode:"", city:"", email:"", phone:"", maritalStatus:"", notEmployed:"", selfEmployed:"" },
+    person: { firstName:"", lastName:"", street:"", postalCode:"", city:"", email:"", phone:"", maritalStatus:"", employmentStatus:"", employmentEndDate:"", selfEmployed:"" },
     finalConsent: false, contactMethod:"Telefon", note:"", leadPrepared:false
   };
   const surface = document.getElementById("surface");
@@ -90,7 +90,7 @@
         <button class="btn soft xl" id="filesBtn">Bilder oder PDF wählen</button><input hidden id="filesInput" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
         <small>Bilder oder PDF · mehrere Policen/Konten möglich · PDF bis 6 Seiten je Dokument</small></div>
       <div class="files-grid" id="filesGrid"></div>
-      <div class="info-strip">🔒 Die Texterkennung läuft im Browser. Dokumentbilder werden von dieser Seite nicht an Garlet Finance Coaching übertragen.</div>
+      <div class="info-strip">🔒 Die Texterkennung läuft im Browser. Dokumentbilder werden von dieser Seite nicht an Carlet Finance Coaching übertragen.</div>
       <label class="consent-card"><input id="consent" type="checkbox" ${state.consent?'checked':''}><span>Ich stimme der lokalen Texterkennung zu und prüfe die automatisch erkannten Beträge vor dem Weiterfahren.</span></label>
       <div id="scanStatus">${state.ocrStatus?`<div class="${state.ocrStatus.startsWith('Fehler')?'error-strip':'info-strip'}">${esc(state.ocrStatus)}</div>`:''}</div>
       <button class="btn primary action-main" id="scanBtn" ${state.scanning||!state.docs.length||!state.consent?'disabled':''}>${state.scanning?'Dokumente werden gelesen …':'Dokumente auslesen & prüfen'}</button>
@@ -185,8 +185,8 @@
   function totals(){const second=sum(state.docs.filter(d=>d.type==='fz'||d.type==='other').map(d=>d.amount)), third=sum(state.docs.filter(d=>d.type==='p3bank'||d.type==='p3insurance').map(d=>d.amount)), total=second+third, fee=total*CONFIG.feeRate,tax=total*CONFIG.taxReserveRate;return{second,third,total,fee,tax,afterFee:total-fee,planning:total-fee-tax}}
   function renderStep3(){const t=totals(); surface.innerHTML=heading('🧮',3,'Guthaben & Kostenübersicht','Alle erfassten Freizügigkeits- und Säule-3a-Guthaben werden zusammengerechnet. Bitte die Werte vor der Anfrage nochmals prüfen.')+`
       <div class="docs-summary">${state.docs.map((d,i)=>`<div class="docs-summary-row"><div><b>${docTypeLabel(d.type)}</b><small>${esc(d.file.name)}</small></div><b>${money(d.amount)}</b></div>`).join('')}</div>
-      <div class="summary-grid"><div class="summary-card"><small>2. Säule / Freizügigkeit</small><b>${money(t.second)}</b><span>erfasste Guthaben</span></div><div class="summary-card"><small>Säule 3a</small><b>${money(t.third)}</b><span>Bank &amp; Versicherung</span></div><div class="summary-card total"><small>Gesamtes erfasstes Guthaben</small><b>${money(t.total)}</b><span>vor Honorar und Steuern</span></div><div class="summary-card green"><small>Nach 4% Garlet-Honorar</small><b>${money(t.afterFee)}</b><span>Steuern noch nicht berücksichtigt</span></div></div>
-      <div class="breakdown"><div class="breakdown-row"><span>Garlet Finance Coaching · Honorar 4%</span><b>− ${money(t.fee)}</b></div><div class="breakdown-row"><span>Unverbindliche Steuerreserve ca. 6%</span><b>− ${money(t.tax)}</b></div><div class="breakdown-row emphasis"><span>Planungsbetrag nach Honorar + 6%-Reserve</span><b>${money(t.planning)}</b></div></div>
+      <div class="summary-grid"><div class="summary-card"><small>2. Säule / Freizügigkeit</small><b>${money(t.second)}</b><span>erfasste Guthaben</span></div><div class="summary-card"><small>Säule 3a</small><b>${money(t.third)}</b><span>Bank &amp; Versicherung</span></div><div class="summary-card total"><small>Gesamtes erfasstes Guthaben</small><b>${money(t.total)}</b><span>vor Honorar und Steuern</span></div><div class="summary-card green"><small>Nach 4% Carlet-Honorar</small><b>${money(t.afterFee)}</b><span>Steuern noch nicht berücksichtigt</span></div></div>
+      <div class="breakdown"><div class="breakdown-row"><span>Carlet Finance Coaching · Honorar 4%</span><b>− ${money(t.fee)}</b></div><div class="breakdown-row"><span>Unverbindliche Steuerreserve ca. 6%</span><b>− ${money(t.tax)}</b></div><div class="breakdown-row emphasis"><span>Planungsbetrag nach Honorar + 6%-Reserve</span><b>${money(t.planning)}</b></div></div>
       <div class="warning-strip"><b>Steuerhinweis:</b> Die 6% sind nur eine Planungsannahme. Die tatsächliche Kapitalleistungssteuer ist separat geschuldet und hängt unter anderem von Wohnort, Betrag, Zivilstand und Auszahlungszeitpunkt ab. Sie ist nicht Bestandteil des 4%-Honorars.</div>
       <div class="info-strip"><b>Bezugsprüfung:</b> Die dargestellten Guthaben sind keine Auszahlungszusage. Freizügigkeits- und Säule-3a-Bezüge werden von den jeweiligen Einrichtungen anhand der gesetzlichen Voraussetzungen und Nachweise geprüft.</div>
       <label class="consent-card"><input id="finalConsent" type="checkbox" ${state.finalConsent?'checked':''}><span>Ich habe die erfassten Guthaben kontrolliert und verstanden, dass Steuer und Bezugsberechtigung erst definitiv geprüft werden.</span></label>
@@ -194,9 +194,9 @@
     document.getElementById('finalConsent').onchange=e=>{state.finalConsent=e.target.checked;document.getElementById('nextBtn').disabled=!state.finalConsent}; document.getElementById('backBtn').onclick=()=>go(2);document.getElementById('nextBtn').onclick=()=>go(4);
   }
 
-  function leadText(){const t=totals(),p=state.person;return `GARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nNicht erwerbstätig: ${p.notEmployed==='yes'?'Ja':'Nein'}\nSelbstständigkeit: ${p.selfEmployed}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.file.name}`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nGarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nPlanungsbetrag: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}`}
+  function leadText(){const t=totals(),p=state.person;return `CARLET FINANCE COACHING – VORSORGE-LEAD\n\nKunde: ${p.firstName} ${p.lastName}\nAdresse: ${p.street}, ${p.postalCode} ${p.city}\nE-Mail: ${p.email}\nTelefon: ${p.phone}\nZivilstand: ${p.maritalStatus}\nNicht erwerbstätig: ${p.notEmployed==='yes'?'Ja':'Nein'}\nSelbstständigkeit: ${p.selfEmployed}\n\nDokumente:\n${state.docs.map((d,i)=>`${i+1}. ${docTypeLabel(d.type)} – ${money(d.amount)} – ${d.file.name}`).join('\n')}\n\n2. Säule/Freizügigkeit: ${money(t.second)}\nSäule 3a: ${money(t.third)}\nGesamt: ${money(t.total)}\nCarlet-Honorar 4%: ${money(t.fee)}\nSteuerreserve 6% (unverbindlich): ${money(t.tax)}\nPlanungsbetrag: ${money(t.planning)}\n\nKontaktwunsch: ${state.contactMethod}\nNotiz: ${state.note||'-'}`}
   function renderStep4(){const t=totals();surface.innerHTML=heading('✓',4,'Beratungsanfrage vorbereiten','Die Vorsorgeübersicht ist bereit. Im Live-Betrieb kann dieser Schritt an CRM, E-Mail oder ein internes Lead-System angebunden werden.')+`
-      <div class="lead-card"><h3>${esc(state.person.firstName)} ${esc(state.person.lastName)} · ${money(t.total)}</h3><p>Erfasstes Vorsorgeguthaben · 4% Garlet-Honorar: ${money(t.fee)} · unverbindliche 6%-Steuerreserve: ${money(t.tax)}</p></div>
+      <div class="lead-card"><h3>${esc(state.person.firstName)} ${esc(state.person.lastName)} · ${money(t.total)}</h3><p>Erfasstes Vorsorgeguthaben · 4% Carlet-Honorar: ${money(t.fee)} · unverbindliche 6%-Steuerreserve: ${money(t.tax)}</p></div>
       <label class="select-block"><span>Bevorzugter Kontakt</span><select id="contactMethod"><option ${state.contactMethod==='Telefon'?'selected':''}>Telefon</option><option ${state.contactMethod==='E-Mail'?'selected':''}>E-Mail</option><option ${state.contactMethod==='WhatsApp'?'selected':''}>WhatsApp</option></select></label>
       <label class="select-block"><span>Notiz / gewünschter Rückrufzeitraum</span><textarea id="note" rows="4" placeholder="Optional">${esc(state.note)}</textarea></label>
       <div class="warning-strip">Dieser Prototyp sendet noch keine sensiblen Kundendaten an ein Backend. Für den Live-Betrieb muss ein freigegebenes CRM-/Lead-Ziel mit Datenschutz- und Zugriffsregeln verbunden werden.</div>
@@ -207,7 +207,7 @@
       <div class="code-box" id="leadPreview">${esc(leadText())}</div>`;
     document.getElementById('contactMethod').onchange=e=>{state.contactMethod=e.target.value;document.getElementById('leadPreview').textContent=leadText()};document.getElementById('note').oninput=e=>{state.note=e.target.value;document.getElementById('leadPreview').textContent=leadText()};
     document.getElementById('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(leadText());document.getElementById('doneMsg').innerHTML='<div class="success-strip">✓ Lead-Zusammenfassung wurde kopiert.</div>'}catch{document.getElementById('doneMsg').innerHTML='<div class="error-strip">Kopieren wurde vom Browser blockiert. Bitte den Text unten manuell markieren.</div>'}};
-    document.getElementById('downloadBtn').onclick=()=>{const payload={createdAt:new Date().toISOString(),person:state.person,documents:state.docs.map(d=>({name:d.file.name,type:d.type,typeLabel:docTypeLabel(d.type),amount:d.amount})),totals:totals(),feeRate:CONFIG.feeRate,taxReserveRate:CONFIG.taxReserveRate,contactMethod:state.contactMethod,note:state.note};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`garlet-lead-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+    document.getElementById('downloadBtn').onclick=()=>{const payload={createdAt:new Date().toISOString(),person:state.person,documents:state.docs.map(d=>({name:d.file.name,type:d.type,typeLabel:docTypeLabel(d.type),amount:d.amount})),totals:totals(),feeRate:CONFIG.feeRate,taxReserveRate:CONFIG.taxReserveRate,contactMethod:state.contactMethod,note:state.note};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`carlet-lead-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
     document.getElementById('backBtn').onclick=()=>go(3);document.getElementById('restartBtn').onclick=()=>location.reload();
   }
   render();
