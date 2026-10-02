@@ -310,6 +310,7 @@
     return false;
   }
   function analyzeLogicalDoc(d){
+    if(d.manual){d.status='done';d.amountAnchored=false;return d}
     const text=String(d.ocrText||'');
     const hit=extractAmount(text);
     const hints=extractPersonHints(text);
@@ -650,7 +651,7 @@
       const label=document.querySelector('[data-field="'+id+'"]');if(!label)return;
       label.classList.add('field-invalid');const m=label.querySelector('.field-error-msg');if(m)m.textContent=msg;
     });
-    const first=document.querySelector('#personForm .field-invalid input,#personForm .field-invalid select');if(first)first.focus({preventScroll:true});
+    const first=document.querySelector('#personForm .field-invalid input,#personForm .field-invalid select');if(first){first.closest('label')?.scrollIntoView({behavior:'smooth',block:'center'});first.focus({preventScroll:true})}
   }
   async function runAddressCheck(force){
     syncPerson();
