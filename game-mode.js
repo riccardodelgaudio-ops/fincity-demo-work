@@ -181,7 +181,7 @@
       ${game.adminPreview&&live?'<button class="action secondary" id="closeAuction">AUKTION ALS DEMO-ADMIN BEENDEN</button>':""}
       <button class="action secondary" id="mapThisAuction">AUF KARTE ANSEHEN</button>
       ${disclaimer()}`);
-    const submit=$("placeBid");if(submit)submit.onclick=()=>placeBid(a.id,int($("bidAmount").value));
+    const submit=$("placeBid");if(submit)submit.onclick=()=>placeBid(a.id,Number($("bidAmount").value));
     const close=$("closeAuction");if(close)close.onclick=()=>finishAuction(a.id);
     $("mapThisAuction").onclick=()=>{safeFly(a.lng,a.lat);closePanel()};
   }
@@ -204,13 +204,15 @@
     if(balance(top.user)<top.amount && top.user===USER)return showAuction(id,"Fehler: Guthaben für das Höchstgebot fehlt.");
     if(top.user===USER)game.wallets[USER]-=top.amount;
     if(a.seller)game.wallets[a.seller]=balance(a.seller)+top.amount;
+    const existing=a.propertyId?c.buildings.find(b=>String(b.id)===String(a.propertyId)):null;
+    const previousPrice=existing?int(existing.lastAuctionPrice):0;
     const record={id:a.id,propertyId:a.propertyId||a.id,name:a.name,amount:top.amount,buyer:top.user,
-      seller:a.seller,at:new Date().toISOString(),resale:Boolean(a.propertyId)};
+      seller:a.seller,at:new Date().toISOString(),resale:Boolean(a.propertyId),previousPrice,resaleGain:existing?top.amount-previousPrice:null};
     c.sales.push(record);
     a.status="sold";
     if(a.propertyId){
       const b=c.buildings.find(b=>String(b.id)===String(a.propertyId));
-      if(b){b.holder=top.user;b.lastAuctionPrice=top.amount;b.lastAuctionDate=new Date().toLocaleDateString("de-CH");b.previousPrice=record.amount;b.kind=b.holder===USER?"owned":"active"}
+      if(b){b.holder=top.user;b.lastAuctionPrice=top.amount;b.lastAuctionDate=new Date().toLocaleDateString("de-CH");b.previousPrice=previousPrice;b.kind=b.holder===USER?"owned":"active"}
     }else{
       c.buildings.push({id:a.id,name:a.name,holder:top.user,kind:top.user===USER?"owned":"active",
         lng:a.lng,lat:a.lat,address:a.address,units:a.units,
@@ -250,13 +252,13 @@
       ${pending?'<div class="card"><div class="note">Dieses Gebäude ist bereits für eine digitale Auktion vorgemerkt.</div></div>':""}
       <button class="action secondary" id="buildingMap">STANDORT AUF KARTE</button>
       ${disclaimer()}`);
-    const resale=$("requestResale");if(resale)resale.onclick=()=>requestResale(id,int($("resalePrice").value));
+    const resale=$("requestResale");if(resale)resale.onclick=()=>requestResale(id,Number($("resalePrice").value));
     $("buildingMap").onclick=()=>{safeFly(b.lng,b.lat);closePanel()};
   }
   function requestResale(id,price){
     const c=ensureCity(),b=c.buildings.find(x=>String(x.id)===String(id));
     if(!b||b.holder!==USER)return showActive();
-    if(price<10||price%10!==0)return showBuilding(id,"Startpreis muss mindestens CHF 10 betragen und durch 10 teilbar sein.");
+    if(!Number.isSafeInteger(price)||price<10||price%10!==0)return showBuilding(id,"Startpreis muss mindestens CHF 10 betragen und durch 10 teilbar sein.");
     if(c.drops.some(a=>String(a.propertyId)===String(b.id)&&["live","planned"].includes(a.status)))return showBuilding(id,"Dieses Haus ist bereits vorgemerkt.");
     const auctionId=`resale-${Date.now()}-${b.id}`;
     c.drops.push({id:auctionId,name:b.name,address:b.address,lng:b.lng,lat:b.lat,
@@ -303,12 +305,12 @@
   }
   function showRanking(){
     activate("ranking");const c=ensureCity(),year=new Date().getFullYear();
-    const historic=c.buildings.filter(b=>String(b.lastAuctionDate||"").includes(String(year))).map(b=>({
+    const historic=c.buildings.filter(b=>b.historical&&!c.sales.some(s=>String(s.propertyId)===String(b.id))&&String(b.lastAuctionDate||"").includes(String(year))).map(b=>({
       name:b.name,buyer:b.holder,amount:b.lastAuctionPrice
     }));
     const newSales=c.sales.filter(s=>new Date(s.at).getFullYear()===year);
     const top=[...historic,...newSales].sort((a,b)=>b.amount-a.amount).slice(0,10);
-    const resales=newSales.filter(s=>s.resale);
+    const resales=newSales.filter(s=>s.resale&&s.previousPrice>0).sort((a,b)=>(b.resaleGain/b.previousPrice)-(a.resaleGain/a.previousPrice));
     openPanel(`<div class="eyebrow">CITY CHALLENGES · ${esc(city().name)}</div><h2>Jahres-Bestenliste ${year}</h2>
       <div class="card"><strong>🏆 Höchster Auktionszuschlag</strong>
         ${top.map((r,i)=>`<div class="rankrow"><b>#${i+1}</b><span><strong>${esc(r.buyer)}</strong><div class="rankmeta">${esc(r.name)}</div></span><span class="rankret">${money(r.amount)}</span></div>`).join("")||'<p class="note">Noch keine Verkäufe in diesem Jahr.</p>'}</div>
