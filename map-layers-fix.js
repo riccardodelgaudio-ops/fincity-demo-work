@@ -28,12 +28,12 @@
       try{rendered=map.queryRenderedFeatures([[origin.x-pad,origin.y-pad],[origin.x+pad,origin.y+pad]],{layers:[buildingLayer]})||[]}catch(e){return}
       let best=null,bestDist=Infinity;
       rendered.forEach(f=>{const c=centerOfGeometry(f.geometry);if(!c)return;const px=map.project(c),d=Math.hypot(px.x-origin.x,px.y-origin.y);if(d<bestDist){bestDist=d;best=c}});
-      if(best){p.lng=best[0];p.lat=best[1];const feat=collection.features.find(x=>Number(x.properties.id)===p.id);if(feat){feat.geometry.coordinates=best;changed=true}}
+      if(best){p.lng=best[0];p.lat=best[1];const feat=collection.features.find(x=>String(x.properties.id)===String(p.id));if(feat){feat.geometry.coordinates=best;changed=true}}
     });
     if(changed)map.getSource(sourceId).setData(collection);snapped=true;
   }
 
-  function openFeature(f){if(!f)return;const idNum=Number(f.properties.id),type=f.properties.type;if(type==='trophy')showTrophy(idNum);else if(type==='auction')showAuction(idNum);else showBuilding(idNum)}
+  function openFeature(f){if(!f)return;const id=f.properties.id,type=f.properties.type;if(type==='trophy')showTrophy(id);else if(type==='auction')showAuction(id);else showBuilding(id)}
 
   function addPointLayers(){
     if(!map||map.getSource(sourceId))return;removeHtmlMarkers();collection=buildFeatures();map.addSource(sourceId,{type:'geojson',data:collection});
