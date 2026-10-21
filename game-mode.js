@@ -94,7 +94,7 @@
   });
   let changed=newlyCreated;
   lineup.forEach(s=>{
-    if(s.auctionId || (!newlyCreated&&now>=s.startsAt))return;
+    if(s.auctionId || s.blocked || (!newlyCreated&&now>=s.startsAt))return;
     const pool=c.drops.filter(a=>eligibleDrop(c,a,busy));
     const chosen=weekly.shuffled(pool,`${c.slug}|${week}|${s.index}|${c.shuffleNonce||0}`)[0];
     if(!chosen)return;
@@ -229,9 +229,9 @@
   }
   return changed;
 }
-  function adminSelectSlot(index,id){
+  function adminSelectSlot(index,id,week=weekly.weekKey(weekly.now())){
   if(!game.adminPreview)return showAdmin("Nur die Demo-Administration kann City Drops auswählen.");
-  const c=ensureCity(),week=weekly.weekKey(weekly.now());
+  const c=ensureCity();
   const slots=ensureWeekSchedule(c,week),s=slots.find(x=>x.index===index);
   if(!s||weekly.now()>=s.startsAt)return showAdmin("Dieses Auktionsfenster hat bereits begonnen und ist gesperrt.");
   const selected=id?c.drops.find(a=>String(a.id)===String(id)):null;
@@ -249,6 +249,7 @@
     old.status="planned";old.scheduledWeek=null;old.startsAt=null;old.endsAt=null;old.slotIndex=null;
   }
   s.auctionId=id||null;
+  s.blocked=!id;
   if(selected){
     selected.status="planned";selected.bids=[];
     selected.scheduledWeek=week;selected.slotIndex=index;
@@ -256,9 +257,9 @@
   }
   save();syncMap();showAdmin(id?"Auktionsobjekt für dieses Zeitfenster festgelegt.":"Das Zeitfenster ist noch ohne Gebäude.");
 }
-  function adminShuffle(){
+  function adminShuffle(week=weekly.weekKey(weekly.now())){
   if(!game.adminPreview)return showAdmin("Nur die Demo-Administration darf neue Objekte auswählen.");
-  const c=ensureCity(),week=weekly.weekKey(weekly.now()),slots=ensureWeekSchedule(c,week);
+  const c=ensureCity(),slots=ensureWeekSchedule(c,week);
   let count=0;
   slots.forEach(s=>{
     if(weekly.now()>=s.startsAt)return;
@@ -267,7 +268,7 @@
       a.status="planned";a.startsAt=null;a.endsAt=null;
       a.scheduledWeek=null;a.slotIndex=null;
     }
-    s.auctionId=null;count++;
+    s.auctionId=null;s.blocked=false;count++;
   });
   if(!count)return showAdmin("Alle drei Starttermine dieser Woche sind bereits vergangen. Keine nachträgliche Neuauswahl.");
   c.shuffleNonce=(c.shuffleNonce||0)+1;
@@ -298,11 +299,11 @@
     investment.splice(0,investment.length,...c.buildings.map(b=>({
       ...b,slots:b.units||0,occupied:0,kind:b.holder===USER?"owned":"active"
     })));
-    auctions.splice(0,auctions.length,...c.drops.filter(a=>a.status==="live"||a.status==="planned").map(a=>({
+    auctions.splice(0,auctions.length,...c.drops.filter(a=>a.scheduledWeek && ["live","planned"].includes(a.status) && (!a.endsAt||a.endsAt>weekly.now())).map(a=>({
       ...a,slots:a.units||0
     })));
     try{window.refreshFinCityMapData?.()}catch(e){}
-    updateHeader();
+    updateHeader();renderUpcomingWidget();
   }
   function updateHeader(){
     const t=globalStats();const c=ensureCity();
