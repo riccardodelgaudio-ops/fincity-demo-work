@@ -739,10 +739,22 @@ function proposeBuilding(obj){
   const previousSwitch=window.switchCity;
   window.switchCity=function(slug,overview=false){
     if(typeof previousSwitch==="function")previousSwitch(slug,false);
-    ensureCity();syncMap();
+    ensureCity();
+    syncScheduledAuctions(false);
+    syncMap();
     if(overview)setTimeout(showCity,145);
   };
   initNavigation();
-  ensureCity();syncMap();
+  ensureCity();
+  syncScheduledAuctions(false);
+  syncMap();
+  // Display the three upcoming city slots on first load, including small-screen devices.
+  showCity();
   save();
+  // Local preview: automatic clock transitions run only while an app/browser is open.
+  // Production needs server-side scheduling and transactions.
+  setInterval(()=>syncScheduledAuctions(true),15000);
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden)syncScheduledAuctions(true);
+  });
 })();
