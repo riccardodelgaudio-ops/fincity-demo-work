@@ -48,3 +48,7 @@
   .panel{top:219px!important;max-height:calc(100vh - 228px)!important}
   .fc-topup-grid{grid-template-columns:1fr}
 }
+
+.side-nav{max-height:calc(100vh - 110px);overflow-y:auto;scrollbar-width:none}
+.side-nav::-webkit-scrollbar{display:none}
+@media(max-height:740px){.nav-btn{height:58px}.nav-btn .ico{font-size:20px}.side-nav{max-height:calc(100vh - 105px)}}
