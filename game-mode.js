@@ -49,6 +49,7 @@
     }
     const c=game.cities[slug];
     c.sales||=[];
+    c.requests||=[];
     c.drops||=[];
     c.buildings||=[];
     return c;
@@ -150,7 +151,7 @@
     activate("auctions");const c=ensureCity();
     openPanel(`<div class="eyebrow">CITY DROPS · ${esc(city().name).toUpperCase()}</div><h2>Immobilien-Auktionen</h2>
       <div class="fc-hero"><span>KNAPPE FREIGABEN</span><strong>${used(c)} / ${quota(c)} diese Woche</strong><small>${available(c)} weitere Starts durch Admin möglich</small></div>
-      <p class="note">Jedes Los ist ein <strong>ganzes digitales Gebäude</strong> – keine mietbaren Wohnungen, keine Asset Allocation.</p>
+      <p class="note">Jedes Los ist ein <strong>ganzes digitales Gebäude</strong> – ohne Mietwohnungen, Depots oder Anlagestrategien.</p>
       <div class="active-list">${dropList(c)}</div><button class="action secondary" id="auctionAdmin">ADMINISTRATION (DEMO)</button>
       ${disclaimer()}`);
     panel.querySelectorAll("[data-auction]").forEach(el=>el.onclick=()=>showAuction(el.dataset.auction));
@@ -285,6 +286,23 @@
     panel.querySelectorAll("[data-building]").forEach(el=>el.onclick=()=>showBuilding(el.dataset.building));
     $("topupWallet").onclick=showWallet;
   }
+function showCardCheckout(amount,flash=""){
+  if(!Number.isSafeInteger(amount)||amount<10||amount>5000||amount%10!==0)return showWallet("Bitte einen Betrag zwischen CHF 10 und CHF 5'000 in Schritten von CHF 10 auswählen.");
+  activate("portfolio");
+  openPanel(`<div class="eyebrow">TEST-CHECKOUT · KEINE ECHTE KREDITKARTENZAHLUNG</div><h2>💳 Simulierte Kartenzahlung</h2>
+    ${flash?`<div class="fc-flash">${esc(flash)}</div>`:""}
+    <div class="card"><div class="previewrow"><span>Testbetrag</span><b>${money(amount)}</b></div>
+      <div class="previewrow"><span>Demo-Zahlungsart</span><b>Spiel-Kreditkarte · TEST</b></div>
+      <div class="note">Keine echte Kreditkarte erforderlich. Bitte keine Kartendaten eingeben. Es wird kein Geld abgebucht.</div></div>
+    <button class="action" id="confirmTestCard">TESTZAHLUNG BESTÄTIGEN · ${money(amount)}</button>
+    <button class="action secondary" id="cancelTestCard">ABBRECHEN</button>${disclaimer()}`);
+  $("confirmTestCard").onclick=()=>{
+    game.wallets[USER]=balance()+amount;
+    game.transactions.push({type:"simulated-card-payment",amount,title:"Simulierte Kreditkartenzahlung",at:new Date().toISOString()});
+    save();updateHeader();showWallet(`${money(amount)} durch simulierte Kartenzahlung gutgeschrieben. Es wurde kein echtes Geld abgebucht.`);
+  };
+  $("cancelTestCard").onclick=showWallet;
+}
   function showWallet(flash=""){
     activate("portfolio");
     openPanel(`<div class="eyebrow">SPIELKONTO · DEMO-ZAHLUNGEN</div><h2>Guthaben aufladen</h2>
@@ -296,7 +314,8 @@
         <button class="action secondary" data-topup="1000">+ CHF 1'000</button>
       </div></div>
       <div class="card"><strong>💳 Kreditkarte</strong><div class="note">Eine echte Kreditkartenzahlung ist in dieser Browser-Demo noch nicht angeschlossen. Keine Kartendaten eingeben – es findet keine Abbuchung statt.</div>
-      <button class="action secondary" disabled>KREDITKARTE · NOCH NICHT VERFÜGBAR</button></div>
+      <label class="eyebrow" for="testCardAmount">TESTBETRAG IN CHF</label><input class="fc-input" id="testCardAmount" type="number" min="10" max="5000" step="10" value="100">
+      <button class="action secondary" id="startTestCard">KREDITKARTE SIMULIEREN →</button></div>
       <button class="action secondary" id="returnAccount">ZURÜCK ZU MEINEM KONTO</button>${disclaimer()}`);
     panel.querySelectorAll("[data-topup]").forEach(b=>b.onclick=()=>{
       const amount=int(b.dataset.topup);
@@ -304,6 +323,7 @@
       game.transactions.push({type:"demo-credit",amount,title:"Testguthaben",at:new Date().toISOString()});
       save();updateHeader();showWallet(`${money(amount)} Testguthaben gutgeschrieben. Keine echte Zahlung.`);
     });
+    const card=$("startTestCard");if(card)card.onclick=()=>showCardCheckout(Number($("testCardAmount").value));
     $("returnAccount").onclick=showPortfolio;
   }
   function showRanking(){
@@ -349,6 +369,39 @@
     <button class="action secondary" id="alertAuctions">AUKTIONEN ANSEHEN</button>${disclaimer()}`);
   $("alertAuctions").onclick=showAuctions;
 }
+function proposeBuilding(obj){
+  const c=ensureCity();
+  const lng=Number(obj.lon??obj.lng),lat=Number(obj.lat);
+  if(!Number.isFinite(lng)||!Number.isFinite(lat)||Math.abs(lng)>180||Math.abs(lat)>90)return {ok:false,message:"Gebäudestandort ungültig."};
+  const key=obj.egid?`egid-${String(obj.egid).replace(/[^a-z0-9-]/gi,"")}`:`coord-${lng.toFixed(5)}-${lat.toFixed(5)}`;
+  if(c.requests.some(r=>r.key===key)||c.drops.some(d=>String(d.requestKey)===key))return {ok:false,message:"Dieser Standort ist bereits für einen digitalen City Drop vorgemerkt."};
+  const address=String(obj.address||"Kartenstandort noch ohne Adresse").slice(0,240);
+  const units=Number.isSafeInteger(Number(obj.units))&&Number(obj.units)>0?int(obj.units):null;
+  c.requests.push({key,name:address,address,lng,lat,units,egid:obj.egid||null,official:Boolean(obj.official),createdAt:new Date().toISOString(),by:USER});
+  save();
+  return {ok:true,message:"Digitaler Auktionsvorschlag vorgemerkt. Nur Admins können ihn freigeben."};
+}
+  function requestCards(c){
+  return `<div class="card"><strong>Karten-Anfragen (${c.requests.length})</strong>
+    <p class="note">Spieler können reale Kartenstandorte vorschlagen. Diese Demo prüft Berechtigungen und Adressen nicht automatisch. Zur Veröffentlichung müssen reale Gebäudeidentität und Spielregeln geprüft werden.</p>
+    ${c.requests.map(r=>`<div class="owned-row">
+      <span><strong>${esc(r.name)}</strong><div class="rankmeta">${r.units??"?"} Wohneinheiten · ${r.official?"GWR-Treffer (Demo)":"Adresse noch zu prüfen"}</div></span>
+      <button class="fc-small" data-approve="${esc(r.key)}">ÜBERNEHMEN</button>
+    </div>`).join("")||'<p class="note">Derzeit keine offenen Anfragen.</p>'}</div>`;
+}
+  function approveRequest(key){
+  if(!game.adminPreview)return showAdmin("Nur der Demo-Admin kann Objekte übernehmen.");
+  const c=ensureCity(),req=c.requests.find(r=>r.key===key);
+  if(!req)return showAdmin("Vorschlag nicht gefunden.");
+  if(c.drops.some(a=>a.requestKey===key))return showAdmin("Objekt ist bereits vorgemerkt.");
+  const id=`proposal-${req.key}`;
+  c.drops.push({id,requestKey:key,name:req.name,address:req.address,lng:req.lng,lat:req.lat,
+    units:req.units,sizeM2:null,startingBid:startPrice(req.units||4),status:"planned",
+    startedWeek:null,bids:[],seller:null,propertyId:null,date:"Nach Admin-Freigabe",
+    verified:req.official});
+  c.requests=c.requests.filter(r=>r.key!==key);
+  save();syncMap();showAdmin("Standort als digitaler City Drop vorgemerkt. Vor echter Freigabe Adresse und Gebäudedaten kontrollieren.");
+}
   function showAdmin(flash=""){
     activate("admin");const c=ensureCity();
     openPanel(`<div class="eyebrow">ADMINISTRATION · NUR SIMULATION</div><h2>City Drops verwalten</h2>
@@ -365,6 +418,7 @@
         ${c.drops.filter(a=>a.status==="planned").map(a=>`<div class="owned-row"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${money(a.startingBid)} · ${esc(a.address)}</div></span><button class="fc-small" data-start="${esc(a.id)}" ${available(c)<=0?"disabled":""}>STARTEN</button></div>`).join("")||'<p class="note">Keine weiteren Objekte vorgemerkt.</p>'}</div>
       <div class="card"><strong>Laufende Auktionen abschliessen</strong>
         ${c.drops.filter(a=>a.status==="live").map(a=>`<div class="owned-row"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${a.bids.length} Gebote</div></span><button class="fc-small" data-finish="${esc(a.id)}">BEENDEN</button></div>`).join("")||'<p class="note">Keine Auktionen laufen.</p>'}</div>`:""}
+      ${game.adminPreview?requestCards(c):""}
       <button class="action secondary" id="backAuctions">ZUR AUKTIONSLISTE</button>${disclaimer()}`);
     $("toggleAdmin").onclick=()=>{game.adminPreview=!game.adminPreview;save();showAdmin()};
     const users=$("applyUsers");if(users)users.onclick=()=>{
@@ -374,6 +428,7 @@
     };
     panel.querySelectorAll("[data-start]").forEach(btn=>btn.onclick=()=>startAuction(btn.dataset.start));
     panel.querySelectorAll("[data-finish]").forEach(btn=>btn.onclick=()=>finishAuction(btn.dataset.finish));
+    panel.querySelectorAll("[data-approve]").forEach(btn=>btn.onclick=()=>approveRequest(btn.dataset.approve));
     $("backAuctions").onclick=showAuctions;
   }
   function startAuction(id){
@@ -410,6 +465,7 @@
   window.showFees=showWallet;window.showSystem=showTrophies;window.showTrophy=showTrophy;
   window.showTrophyRanking=showTrophies;window.showAlerts=showAlerts;
   window.copyStrategy=showPortfolio;
+  window.finCityProposeBuilding=proposeBuilding;
   const previousSwitch=window.switchCity;
   window.switchCity=function(slug,overview=false){
     if(typeof previousSwitch==="function")previousSwitch(slug,false);
