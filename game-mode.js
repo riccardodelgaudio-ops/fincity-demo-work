@@ -4,6 +4,8 @@
   const KEY="fincity-auction-game-v1";
   const USER="@MyFinCity";
   const STEP=10;
+  const weekly=window.FinCityWeekly;
+  if(!weekly)throw new Error("FinCity weekly timetable module is missing.");
   const $=id=>document.getElementById(id);
   const money=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(n||0);
   const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -18,11 +20,7 @@
   let currentView="city";
   function save(){try{localStorage.setItem(KEY,JSON.stringify(game))}catch(e){console.warn("FinCity-Demo kann lokal nicht speichern",e)}}
   function city(){return window.getCurrentFinCityCity?.()||{slug:"zurich",name:"Zürich",canton:"ZH"}}
-  function weekKey(date=new Date()){
-    const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
-    d.setDate(d.getDate()-(d.getDay()+6)%7);
-    return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
-  }
+  function weekKey(date=new Date()){return weekly.weekKey(date.getTime())}
   function startPrice(units){return units<=4?100:units<=10?200:units<=20?250:300}
   function convertBuilding(p){
     return {id:p.id,name:p.name,holder:p.holder||USER,kind:p.kind,lng:p.lng,lat:p.lat,
@@ -34,7 +32,7 @@
     return {id:a.id,name:a.name,address:a.address||"Standort auf der Karte · Adresse wird verifiziert",
       lng:a.lng,lat:a.lat,units:int(a.slots)||null,
       sizeM2:int(a.sizeM2)||null,startingBid:startPrice(int(a.slots)||4),
-      status:i===0?"live":"planned",startedWeek:i===0?weekKey():null,
+      status:"planned",startedWeek:null,
       bids:[],seller:null,propertyId:null,date:a.date||"Termin folgt"};
   }
   function ensureCity(){
@@ -44,7 +42,7 @@
       game.cities[slug]={buildings:b,drops:auctions.map(convertDrop),
         baselineCount:b.length,baselineValue:b.reduce((s,p)=>s+p.lastAuctionPrice,0),
         userCount:Math.max(1,new Set(b.map(p=>p.holder)).size),
-        sales:[]};
+        sales:[],weeklySchedules:{},scheduleVersion:1,name:city().name,slug};
       save();
     }
     const c=game.cities[slug];
@@ -52,11 +50,24 @@
     c.requests||=[];
     c.drops||=[];
     c.buildings||=[];
+    c.weeklySchedules||={};
+    c.name=city().name;c.slug=slug;
+    if(!c.scheduleVersion){
+      // Older browser saves predate timed city auctions. Preserve bought houses,
+      // but move un-timed live demos back to the eligible, unstarted pool.
+      c.drops.forEach(a=>{
+        if(a.status==="live"&&!a.endsAt){
+          a.status=(a.bids||[]).length?"expired":"planned";
+          a.startedWeek=null;
+        }
+      });
+      c.scheduleVersion=1;save();
+    }
     return c;
   }
-  function quota(c){return Math.min(10,2+Math.floor(Math.max(0,int(c.userCount))/250))}
+  function quota(){return 3}
   function used(c){return c.drops.filter(a=>a.startedWeek===weekKey()).length}
-  function available(c){return Math.max(0,quota(c)-used(c))}
+  function available(c){return Math.max(0,quota()-used(c))}
   function balance(who=USER){return int(game.wallets[who])}
   function reserved(who=USER){return Object.values(game.cities).reduce((s,c)=>s+c.drops.reduce((v,a)=>{
     const top=highest(a);return v+(a.status==="live"&&top?.user===who?top.amount:0);
@@ -64,6 +75,205 @@
   function freeBalance(){return Math.max(0,balance()-reserved())}
   function highest(a){return a.bids?.length?[...a.bids].sort((x,y)=>y.amount-x.amount)[0]:null}
   function bidFloor(a){return Math.max(a.startingBid||100,(highest(a)?.amount||0)+STEP)}
+  function eligibleDrop(c,a,exclude){
+  if(exclude.has(String(a.id)))return false;
+  if(a.status!=="planned" && !(a.status==="expired"&&!(a.bids||[]).length))return false;
+  if(!a.propertyId && c.buildings.some(b=>String(b.id)===String(a.id)))return false;
+  if(a.propertyId && !c.buildings.some(b=>String(b.id)===String(a.propertyId)&&b.holder===a.seller))return false;
+  return true;
+}
+  function ensureWeekSchedule(c,week,now=weekly.now()){
+  const newlyCreated=!c.weeklySchedules[week];
+  if(newlyCreated)c.weeklySchedules[week]=weekly.slots(week).map(s=>({...s,auctionId:null}));
+  const lineup=c.weeklySchedules[week];
+  const busy=new Set();
+  Object.entries(c.weeklySchedules).forEach(([w,slots])=>{
+    slots.forEach(s=>{
+      if(s.auctionId && ((w===week)||(s.endsAt>now)))busy.add(String(s.auctionId));
+    });
+  });
+  let changed=newlyCreated;
+  lineup.forEach(s=>{
+    if(s.auctionId || (!newlyCreated&&now>=s.startsAt))return;
+    const pool=c.drops.filter(a=>eligibleDrop(c,a,busy));
+    const chosen=weekly.shuffled(pool,`${c.slug}|${week}|${s.index}|${c.shuffleNonce||0}`)[0];
+    if(!chosen)return;
+    busy.add(String(chosen.id));
+    s.auctionId=chosen.id;
+    chosen.status="planned";
+    chosen.bids=[];
+    chosen.scheduledWeek=week;
+    chosen.slotIndex=s.index;
+    chosen.startsAt=s.startsAt;
+    chosen.endsAt=s.endsAt;
+    chosen.startedWeek=null;
+    changed=true;
+  });
+  if(changed)save();
+  return lineup;
+}
+  function upcomingSlots(c,now=weekly.now()){
+  const week=weekly.weekKey(now);
+  const todaySlots=ensureWeekSchedule(c,week,now).filter(s=>s.endsAt>now);
+  if(todaySlots.length>=3)return todaySlots.slice(0,3);
+  const following=weekly.nextWeek(week);
+  const nextSlots=ensureWeekSchedule(c,following,now);
+  return [...todaySlots,...nextSlots].slice(0,3);
+}
+  function auctionBySlot(c,s){return c.drops.find(a=>String(a.id)===String(s.auctionId))||null}
+  function slotBadge(a,s,now=weekly.now()){
+  if(!a)return "OFFEN";
+  if(a.status==="sold")return "VERKAUFT";
+  if(a.status==="expired")return "OHNE GEBOT";
+  if(now<s.startsAt)return "BALD";
+  if(now<s.endsAt)return "LIVE";
+  return "BEENDET";
+}
+  function slotHtml(c,s,compact=false){
+  const a=auctionBySlot(c,s),status=slotBadge(a,s),enabled=Boolean(a);
+  const start=weekly.format(s.startsAt),end=weekly.format(s.endsAt);
+  const title=a?esc(a.name):"Gebäude wird noch ausgewählt";
+  const address=a?esc(a.address):"Weitere reale Kartenstandorte werden geprüft";
+  const price=a?money(highest(a)?.amount||a.startingBid):"–";
+  return `<button type="button" class="fc-schedule-slot ${compact?"compact":""}" ${enabled?`data-upcoming-auction="${esc(a.id)}"`:"disabled"}
+      aria-label="${esc(s.startDay)} bis ${esc(s.endDay)} um 20 Uhr: ${title}, ${status}">
+      <span class="fc-slot-badge ${status==="LIVE"?"live":""}">${status}</span>
+      <span class="fc-slot-time">${esc(s.startDay)} 20:00 <span aria-hidden="true">→</span> ${esc(s.endDay)} 20:00</span>
+      <strong>${title}</strong>
+      ${compact?"":`<small>${address}</small>`}
+      <span class="fc-slot-foot"><span>Start ${esc(start)} · Ende ${esc(end)}</span>${a?`<b>${price}</b>`:""}</span>
+    </button>`;
+}
+  function bindUpcoming(scope){
+  scope.querySelectorAll("[data-upcoming-auction]").forEach(el=>el.onclick=()=>showAuction(el.dataset.upcomingAuction));
+}
+  function renderUpcomingWidget(){
+  const widget=$("upcomingDrops");
+  if(!widget)return;
+  const c=ensureCity();
+  widget.innerHTML=`<div class="fc-upcoming-title"><span>🔨 NÄCHSTE CITY DROPS</span><b>${esc(city().name)}</b></div>
+    <div class="fc-upcoming-items">${upcomingSlots(c).map(s=>slotHtml(c,s,true)).join("")}</div>
+    <button class="fc-upcoming-all" type="button" id="allUpcomingAuctions">ALLE AUKTIONEN →</button>
+    <small class="fc-upcoming-note">Alle Zeiten Schweiz · MEZ/MESZ · Spiel-Demo</small>`;
+  bindUpcoming(widget);
+  $("allUpcomingAuctions").onclick=showAuctions;
+}
+  function settleAuction(c,a,now=weekly.now()){
+  if(!a||a.status!=="live")return false;
+  const top=highest(a);
+  if(!top){a.status="expired";return true}
+  if(top.user===USER && balance(USER)<top.amount){
+    a.status="expired";
+    a.error="Demo-Guthaben reichte beim Auktionsende nicht aus.";
+    return true;
+  }
+  if(top.user===USER)game.wallets[USER]=balance(USER)-top.amount;
+  if(a.seller)game.wallets[a.seller]=balance(a.seller)+top.amount;
+  const existing=a.propertyId?c.buildings.find(b=>String(b.id)===String(a.propertyId)):null;
+  const previousPrice=existing?int(existing.lastAuctionPrice):0;
+  const soldAt=new Date(now).toISOString();
+  c.sales.push({
+    id:a.id,propertyId:a.propertyId||a.id,name:a.name,amount:top.amount,buyer:top.user,
+    seller:a.seller,at:soldAt,resale:Boolean(a.propertyId),previousPrice,
+    resaleGain:existing?top.amount-previousPrice:null
+  });
+  a.status="sold";
+  if(existing){
+    existing.holder=top.user;
+    existing.lastAuctionPrice=top.amount;
+    existing.lastAuctionDate=new Date(now).toLocaleDateString("de-CH",{timeZone:weekly.zone});
+    existing.previousPrice=previousPrice;
+    existing.kind=top.user===USER?"owned":"active";
+  }else{
+    c.buildings.push({
+      id:a.id,name:a.name,holder:top.user,kind:top.user===USER?"owned":"active",
+      lng:a.lng,lat:a.lat,address:a.address,units:a.units,
+      lastAuctionPrice:top.amount,lastAuctionDate:new Date(now).toLocaleDateString("de-CH",{timeZone:weekly.zone}),historical:false
+    });
+  }
+  game.transactions.push({type:"purchase",amount:-top.amount,title:a.name,at:soldAt});
+  return true;
+}
+  function syncScheduledAuctions(redraw=false){
+  const now=weekly.now(),c=ensureCity();
+  ensureWeekSchedule(c,weekly.weekKey(now),now);
+  let changed=false;
+  Object.values(game.cities).forEach(market=>{
+    market.drops.forEach(a=>{
+      if(!Number.isFinite(a.startsAt)||!Number.isFinite(a.endsAt))return;
+      if(a.status==="planned"&&now>=a.endsAt){
+        a.status="expired";changed=true;
+      }else if(a.status==="planned"&&now>=a.startsAt){
+        a.status="live";
+        a.startedWeek=a.scheduledWeek;
+        game.notifications.unshift({
+          title:`Neue Auktion: ${a.name}`,city:market.name||market.slug,at:new Date(now).toISOString(),read:false
+        });
+        changed=true;
+      }
+      if(a.status==="live"&&now>=a.endsAt)changed=settleAuction(market,a,now)||changed;
+    });
+  });
+  if(game.notifications.length>50)game.notifications.length=50;
+  if(changed)save();
+  // Populate preview for next week when fewer than three current windows remain.
+  upcomingSlots(c,now);
+  if(changed)syncMap();
+  else {updateHeader();renderUpcomingWidget()}
+  if(changed&&redraw){
+    if(currentView==="city")showCity();
+    else if(currentView==="auctions")showAuctions();
+    else if(currentView==="admin")showAdmin();
+    else if(currentView==="active")showActive();
+    else if(currentView==="portfolio")showPortfolio();
+  }
+  return changed;
+}
+  function adminSelectSlot(index,id){
+  if(!game.adminPreview)return showAdmin("Nur die Demo-Administration kann City Drops auswählen.");
+  const c=ensureCity(),week=weekly.weekKey(weekly.now());
+  const slots=ensureWeekSchedule(c,week),s=slots.find(x=>x.index===index);
+  if(!s||weekly.now()>=s.startsAt)return showAdmin("Dieses Auktionsfenster hat bereits begonnen und ist gesperrt.");
+  const selected=id?c.drops.find(a=>String(a.id)===String(id)):null;
+  if(id&&!selected)return showAdmin("Gebäude nicht gefunden.");
+  const blocked=new Set();
+  Object.entries(c.weeklySchedules).forEach(([k,others])=>{
+    others.forEach(other=>{
+      if(other!==s&&other.auctionId&&other.endsAt>weekly.now())blocked.add(String(other.auctionId));
+    });
+  });
+  if(selected && !eligibleDrop(c,selected,blocked) && String(s.auctionId)!==String(selected.id))
+    return showAdmin("Dieses digitale Gebäude ist bereits anderswo eingeplant oder nicht mehr verfügbar.");
+  const old=auctionBySlot(c,s);
+  if(old&&String(old.id)!==String(id)){
+    old.status="planned";old.scheduledWeek=null;old.startsAt=null;old.endsAt=null;old.slotIndex=null;
+  }
+  s.auctionId=id||null;
+  if(selected){
+    selected.status="planned";selected.bids=[];
+    selected.scheduledWeek=week;selected.slotIndex=index;
+    selected.startsAt=s.startsAt;selected.endsAt=s.endsAt;selected.startedWeek=null;
+  }
+  save();syncMap();showAdmin(id?"Auktionsobjekt für dieses Zeitfenster festgelegt.":"Das Zeitfenster ist noch ohne Gebäude.");
+}
+  function adminShuffle(){
+  if(!game.adminPreview)return showAdmin("Nur die Demo-Administration darf neue Objekte auswählen.");
+  const c=ensureCity(),week=weekly.weekKey(weekly.now()),slots=ensureWeekSchedule(c,week);
+  let count=0;
+  slots.forEach(s=>{
+    if(weekly.now()>=s.startsAt)return;
+    const a=auctionBySlot(c,s);
+    if(a){
+      a.status="planned";a.startsAt=null;a.endsAt=null;
+      a.scheduledWeek=null;a.slotIndex=null;
+    }
+    s.auctionId=null;count++;
+  });
+  if(!count)return showAdmin("Alle drei Starttermine dieser Woche sind bereits vergangen. Keine nachträgliche Neuauswahl.");
+  c.shuffleNonce=(c.shuffleNonce||0)+1;
+  ensureWeekSchedule(c,week,weekly.now());
+  save();syncMap();showAdmin("Zufällige Auswahl für noch nicht gestartete City Drops aktualisiert.");
+}
   function globalBase(){
     // Stable historical seed totals, independent of which city the user has visited.
     const cities=window.getFinCityCities?.()||[];
