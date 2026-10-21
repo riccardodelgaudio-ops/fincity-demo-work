@@ -70,11 +70,11 @@
         <div class="previewrow"><span>Adresse</span><b>${obj.address}</b></div>
         <div class="previewrow"><span>Adressquelle</span><b>${obj.official?'BUND · GWR / GEO.ADMIN.CH':'KARTEN-GEOCODING · DEMO'}</b></div>
         ${obj.egid?`<div class="previewrow"><span>EGID</span><b>${obj.egid}</b></div>`:''}
-        ${obj.units!==null&&obj.units!==undefined&&obj.units!==''?`<div class="previewrow"><span>Wohnungen / mögliche Slots</span><b>${obj.units}</b></div>`:''}
+        ${obj.units!==null&&obj.units!==undefined&&obj.units!==''?`<div class="previewrow"><span>Wohneinheiten (Gebäudegrösse)</span><b>${obj.units}</b></div>`:''}
         <div class="previewrow"><span>Demo-Anfragen auf diesem Gerät</span><b>${cnt}</b></div>
       </div>
-      <div class="card"><strong>Noch nicht als FinCity-Gebäude freigeschaltet</strong><div class="note">Du kannst für dieses reale Kartenobjekt eine Freischaltung bzw. Auktion anfragen. Vor einer echten Veröffentlichung würden Adresse, EGID, Wohnungszahl und Berechtigungen verifiziert.</div></div>
-      <button class="action" id="startAuctionRequest">AUKTIONSANFRAGE STARTEN</button>
+      <div class="card"><strong>Noch nicht als digitales Spielgebäude freigeschaltet</strong><div class="note">Du kannst diesen echten Kartenstandort als digitales FinCity-Spielgebäude für eine spätere Auktion vorschlagen. Nur Administratoren dürfen die Auktion freigeben. Der Kauf überträgt keine Rechte an der realen Immobilie.</div></div>
+      <button class="action" id="startAuctionRequest">AUKTIONSVORSCHLAG SENDEN</button>
       <button class="action secondary" id="centerGeneric">AUF GEBÄUDE ZENTRIEREN</button>
     `);
     document.getElementById('centerGeneric').onclick=()=>{safeFly(obj.lon,obj.lat);closePanel()};
@@ -86,9 +86,9 @@
       <div class="eyebrow">AUKTIONSANFRAGE · DEMO</div><h2>${obj.address}</h2>
       <div class="card"><div class="previewrow"><span>Objekt</span><b>${obj.address}</b></div>${obj.egid?`<div class="previewrow"><span>EGID</span><b>${obj.egid}</b></div>`:''}</div>
       <label class="eyebrow" for="requestName">NAME / USER</label><input id="requestName" value="@MyFinCity" style="width:100%;margin:6px 0 10px;padding:12px;border-radius:10px;border:1px solid #2b3a56;background:#0b111d;color:#fff">
-      <label class="eyebrow" for="requestNote">NACHRICHT</label><textarea id="requestNote" rows="3" placeholder="Ich möchte dieses Gebäude für einen zukünftigen City Drop vormerken." style="width:100%;margin:6px 0 10px;padding:12px;border-radius:10px;border:1px solid #2b3a56;background:#0b111d;color:#fff"></textarea>
+      <label class="eyebrow" for="requestNote">NACHRICHT</label><textarea id="requestNote" rows="3" placeholder="Bitte diesen Kartenstandort für einen digitalen City Drop prüfen." style="width:100%;margin:6px 0 10px;padding:12px;border-radius:10px;border:1px solid #2b3a56;background:#0b111d;color:#fff"></textarea>
       <button class="action" id="confirmAuctionRequest">ANFRAGE ABSENDEN · DEMO</button>
-      <p class="note">Aktuell wird die Anfrage nur auf diesem Gerät gespeichert. Sobald ein Backend vorhanden ist, kann derselbe Button die Anfrage zentral an FinCity senden.</p>
+      <p class="note">Aktuell wird diese Spiel-Anfrage ausschliesslich lokal auf diesem Gerät gespeichert. Sie startet keine Auktion und löst keine echte Zahlung aus.</p>
     `);
     document.getElementById('confirmAuctionRequest').onclick=()=>{
       const key=requestKey(obj);const next=requestCount(obj)+1;localStorage.setItem(key,String(next));
