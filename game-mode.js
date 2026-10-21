@@ -636,45 +636,81 @@ function proposeBuilding(obj){
   c.requests=c.requests.filter(r=>r.key!==key);
   save();syncMap();showAdmin("Standort als digitaler City Drop vorgemerkt. Vor echter Freigabe Adresse und Gebäudedaten kontrollieren.");
 }
+  function adminSlotOptions(c,s,now){
+  const selected=auctionBySlot(c,s);
+  const busy=new Set();
+  Object.values(c.weeklySchedules).forEach(arr=>arr.forEach(other=>{
+    if(other!==s&&other.auctionId&&other.endsAt>now)busy.add(String(other.auctionId));
+  }));
+  const possible=c.drops.filter(a=>String(a.id)===String(selected?.id)||eligibleDrop(c,a,busy));
+  const unique=[...new Map(possible.map(a=>[String(a.id),a])).values()]
+    .sort((a,b)=>a.name.localeCompare(b.name,"de-CH"));
+  return `<option value="" ${!selected?"selected":""}>— Noch kein Gebäude freigeben —</option>
+    ${unique.map(a=>`<option value="${esc(a.id)}" ${String(selected?.id)===String(a.id)?"selected":""}>${esc(a.name)} · ab ${money(a.startingBid)}</option>`).join("")}`;
+}
   function showAdmin(flash=""){
-    activate("admin");const c=ensureCity();
-    openPanel(`<div class="eyebrow">ADMINISTRATION · NUR SIMULATION</div><h2>City Drops verwalten</h2>
-      ${flash?`<div class="fc-flash">${esc(flash)}</div>`:""}
-      <div class="card"><strong>Demo-Administrator</strong><p class="note">Der Schalter dient nur zum Ausprobieren. Er ist keine echte Anmeldung und schützt keine Daten. Im Produkt müssen Rollen und Starts serverseitig geprüft werden.</p>
+  activate("admin");
+  const c=ensureCity(),now=weekly.now(),week=weekly.weekKey(now);
+  const current=ensureWeekSchedule(c,week,now);
+  const targetWeek=current.every(s=>s.startsAt<=now)?weekly.nextWeek(week):week;
+  const editSlots=ensureWeekSchedule(c,targetWeek,now);
+  openPanel(`<div class="eyebrow">FINCITY ADMINISTRATION · STADTAUKTIONEN</div><h2>City Drops · ${esc(city().name)}</h2>
+    ${flash?`<div class="fc-flash" role="status">${esc(flash)}</div>`:""}
+    <div class="card"><strong>Administrator-Demo</strong>
+      <p class="note">Nur freigegebene digitale Gebäude werden in der <b>wöchentlichen</b> Auktionsfolge angeboten. Start und Ende sind fix um 20:00 Uhr (Europe/Zurich). Der Admin wählt vor dem Start das Gebäude. Diese Browser-Vorschau ist keine sichere Benutzerberechtigung.</p>
       <button class="action ${game.adminPreview?"secondary":""}" id="toggleAdmin">${game.adminPreview?"DEMO-ADMIN-MODUS VERLASSEN":"DEMO-ADMIN-MODUS AKTIVIEREN"}</button></div>
-      <div class="grid2"><div class="metric"><span>SPIELER · ${esc(city().name)}</span><strong>${c.userCount}</strong></div>
-      <div class="metric"><span>WOCHENLIMIT</span><strong>${used(c)} / ${quota(c)}</strong></div></div>
-      ${game.adminPreview?`<div class="card"><strong>Knappheit simulieren</strong><p class="note">2 Auktionen pro Woche + 1 pro 250 aktiven Spielern (maximal 10).</p>
-      <label class="eyebrow" for="activeUsers">AKTIVE SPIELER IN DIESER STADT (DEMO)</label>
-      <input class="fc-input" id="activeUsers" type="number" min="1" max="100000" value="${c.userCount}">
-      <button class="action secondary" id="applyUsers">SPIELERZAHL ÜBERNEHMEN</button></div>
-      <div class="card"><strong>Zur Freigabe vorgemerkt</strong>
-        ${c.drops.filter(a=>a.status==="planned").map(a=>`<div class="owned-row"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${money(a.startingBid)} · ${esc(a.address)}</div></span><button class="fc-small" data-start="${esc(a.id)}" ${available(c)<=0?"disabled":""}>STARTEN</button></div>`).join("")||'<p class="note">Keine weiteren Objekte vorgemerkt.</p>'}</div>
-      <div class="card"><strong>Laufende Auktionen abschliessen</strong>
-        ${c.drops.filter(a=>a.status==="live").map(a=>`<div class="owned-row"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${a.bids.length} Gebote</div></span><button class="fc-small" data-finish="${esc(a.id)}">BEENDEN</button></div>`).join("")||'<p class="note">Keine Auktionen laufen.</p>'}</div>`:""}
-      ${game.adminPreview?requestCards(c):""}
-      <button class="action secondary" id="backAuctions">ZUR AUKTIONSLISTE</button>${disclaimer()}`);
-    $("toggleAdmin").onclick=()=>{game.adminPreview=!game.adminPreview;save();showAdmin()};
-    const users=$("applyUsers");if(users)users.onclick=()=>{
-      const n=int($("activeUsers").value);
-      if(n<1||n>100000)return showAdmin("Bitte 1 bis 100'000 Demo-Spieler angeben.");
-      c.userCount=n;save();showAdmin("Wochenlimit anhand der Spielerzahl neu berechnet.");
+    <div class="grid2"><div class="metric"><span>WOCHENFENSTER JE STADT</span><strong>3</strong></div>
+      <div class="metric"><span>AKTIVE DEMO-SPIELER</span><strong>${c.userCount}</strong></div></div>
+    <div class="card fc-next-section"><strong>Aktuelle Woche · ${esc(weekly.formatDay(current[0].startsAt))}</strong>
+      <p class="note">Montag → Freitag · Dienstag → Samstag · Mittwoch → Sonntag · jeweils 20:00 Uhr</p>
+      <div class="fc-schedule-list">${current.map(s=>slotHtml(c,s,true)).join("")}</div></div>
+    ${game.adminPreview?`
+      <div class="card fc-admin-calendar">
+        <div class="fc-section-heading"><strong>Gebäude für ${esc(weekly.formatDay(editSlots[0].startsAt))} auswählen</strong><span>ADMIN</span></div>
+        <p class="note">Eine zufällige Vorauswahl wird pro Stadt und Woche gespeichert. Du kannst die noch nicht gestarteten Auktionslose ändern. Bereits gestartete Zeitfenster bleiben gesperrt.</p>
+        ${editSlots.map(s=>{
+          const locked=now>=s.startsAt,a=auctionBySlot(c,s);
+          return `<div class="fc-admin-slot">
+            <div class="fc-admin-slot-header"><b>${esc(weekly.hoursText(s))}</b><span>${locked?"🔒 Bereits gestartet / vergangen":"Freigabe möglich"}</span></div>
+            <small>Start ${esc(weekly.format(s.startsAt))} · Ende ${esc(weekly.format(s.endsAt))}</small>
+            ${locked?`<strong>${a?esc(a.name):"Kein Gebäude ausgewählt"}</strong>`:
+              `<label class="eyebrow" for="adminSlot${s.index}">DIGITALES GEBÄUDE</label>
+              <select class="fc-input" id="adminSlot${s.index}" data-admin-slot="${s.index}" data-week="${esc(targetWeek)}">
+                ${adminSlotOptions(c,s,now)}
+              </select>`}
+          </div>`;
+        }).join("")}
+        <button class="action secondary" id="shuffleUpcoming">🎲 NOCH OFFENE OBJEKTE NEU MISCHEN</button>
+      </div>
+      <div class="card"><strong>Weitere freigegebene Gebäude (Warteliste)</strong>
+        ${c.drops.filter(a=>(a.status==="planned"||a.status==="expired")&&!a.scheduledWeek)
+          .map(a=>`<div class="owned-row"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${esc(a.address)} · Startpreis ${money(a.startingBid)}</div></span><b>✓</b></div>`)
+          .join("")||'<p class="note">Alle derzeit freigegebenen Gebäude wurden eingeplant. Neue Standorte können über die Karte vorgeschlagen werden.</p>'}</div>
+      <div class="card"><strong>Spielerzahl simulieren</strong>
+        <p class="note">In dieser Demo bleiben es drei feste Auktionen je Stadt und Woche. Später können Spielerzahl und Nachfrage zusätzliche Freigaben beeinflussen.</p>
+        <label class="eyebrow" for="activeUsers">AKTIVE SPIELER IN DIESER STADT (DEMO)</label>
+        <input class="fc-input" id="activeUsers" type="number" min="1" max="100000" value="${c.userCount}">
+        <button class="action secondary" id="applyUsers">SPIELERZAHL SPEICHERN</button></div>
+      ${requestCards(c)}`:""}
+    <button class="action secondary" id="backAuctions">ZUR AUKTIONSLISTE</button>
+    ${disclaimer()}`);
+  $("toggleAdmin").onclick=()=>{game.adminPreview=!game.adminPreview;save();showAdmin()};
+  if(game.adminPreview){
+    const users=$("applyUsers");
+    if(users)users.onclick=()=>{
+      const n=Number($("activeUsers").value);
+      if(!Number.isSafeInteger(n)||n<1||n>100000)return showAdmin("Bitte 1 bis 100'000 Demo-Spieler angeben.");
+      c.userCount=n;save();showAdmin("Spielerzahl gespeichert. Drei Auktionsfenster pro Woche bleiben aktiv.");
     };
-    panel.querySelectorAll("[data-start]").forEach(btn=>btn.onclick=()=>startAuction(btn.dataset.start));
-    panel.querySelectorAll("[data-finish]").forEach(btn=>btn.onclick=()=>finishAuction(btn.dataset.finish));
+    panel.querySelectorAll("[data-admin-slot]").forEach(el=>el.onchange=()=>{
+      adminSelectSlot(Number(el.dataset.adminSlot),el.value,el.dataset.week);
+    });
+    const shuffle=$("shuffleUpcoming");if(shuffle)shuffle.onclick=()=>adminShuffle(targetWeek);
     panel.querySelectorAll("[data-approve]").forEach(btn=>btn.onclick=()=>approveRequest(btn.dataset.approve));
-    $("backAuctions").onclick=showAuctions;
   }
-  function startAuction(id){
-    if(!game.adminPreview)return showAdmin("Nur der Demo-Admin darf Auktionen starten.");
-    const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
-    if(!a||a.status!=="planned")return showAdmin("Dieses Los kann nicht gestartet werden.");
-    if(available(c)<=0)return showAdmin("Wochenlimit erreicht. Starte keine weiteren Auktionen in dieser Stadt.");
-    a.status="live";a.startedWeek=weekKey();a.date="Jetzt live · vom Admin freigegeben";
-    game.notifications.unshift({title:`Neue Auktion: ${a.name}`,city:city().name,at:new Date().toISOString(),read:false});
-    if(game.notifications.length>50)game.notifications.length=50;
-    save();syncMap();showAdmin(`${a.name} wurde als Demo-Auktion gestartet. Die neue In-App-Meldung steht unter «Meldungen».`);
-  }
+  bindUpcoming(panel);
+  $("backAuctions").onclick=showAuctions;
+}
   function initNavigation(){
     const mappings={city:showCity,auctions:showAuctions,alerts:showAlerts,active:showActive,portfolio:showPortfolio,ranking:showRanking,trophies:showTrophies,admin:showAdmin};
     document.querySelectorAll(".nav-btn").forEach(btn=>{
