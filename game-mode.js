@@ -192,7 +192,7 @@
   if(a.seller)game.wallets[a.seller]=balance(a.seller)+top.amount;
   const existing=a.propertyId?c.buildings.find(b=>String(b.id)===String(a.propertyId)):null;
   const previousPrice=existing?int(existing.lastAuctionPrice):0;
-  const soldAt=new Date(now).toISOString();
+  const soldAt=new Date(a.endsAt||now).toISOString();
   c.sales.push({
     id:a.id,propertyId:a.propertyId||a.id,name:a.name,amount:top.amount,buyer:top.user,
     seller:a.seller,at:soldAt,resale:Boolean(a.propertyId),previousPrice,
@@ -202,14 +202,14 @@
   if(existing){
     existing.holder=top.user;
     existing.lastAuctionPrice=top.amount;
-    existing.lastAuctionDate=new Date(now).toLocaleDateString("de-CH",{timeZone:weekly.zone});
+    existing.lastAuctionDate=new Date(a.endsAt||now).toLocaleDateString("de-CH",{timeZone:weekly.zone});
     existing.previousPrice=previousPrice;
     existing.kind=top.user===USER?"owned":"active";
   }else{
     c.buildings.push({
       id:a.id,name:a.name,holder:top.user,kind:top.user===USER?"owned":"active",
       lng:a.lng,lat:a.lat,address:a.address,units:a.units,
-      lastAuctionPrice:top.amount,lastAuctionDate:new Date(now).toLocaleDateString("de-CH",{timeZone:weekly.zone}),historical:false
+      lastAuctionPrice:top.amount,lastAuctionDate:new Date(a.endsAt||now).toLocaleDateString("de-CH",{timeZone:weekly.zone}),historical:false
     });
   }
   game.transactions.push({type:"purchase",amount:-top.amount,title:a.name,at:soldAt});
@@ -370,7 +370,7 @@
       <div class="metric"><span>DIGITALER PLATTFORMWERT</span><strong>${money(stats.value)}</strong></div></div>
     <div class="card fc-next-section">
       <div class="fc-section-heading"><strong>🔨 Nächste Auktionen</strong><span>MEZ / MESZ</span></div>
-      <p class="note">Für jede Stadt werden unterschiedliche digitale Gebäude aus dem freigegebenen Bestand ausgewählt. Einmal angekündigte Objekte bleiben bis zum Auktionsende fest zugeteilt.</p>
+      <p class="note">Für jede Stadt werden unterschiedliche digitale Gebäude aus dem freigegebenen Bestand ausgewählt. Die zufällige Vorauswahl bleibt beim Neuladen stabil; Admins können noch nicht gestartete Lose ändern.</p>
       <div class="fc-schedule-list">${slots.map(s=>slotHtml(c,s)).join("")}</div>
     </div>
     <button class="action" id="cityAuctions">ALLE AUKTIONEN IN ${esc(city().name).toUpperCase()}</button>
