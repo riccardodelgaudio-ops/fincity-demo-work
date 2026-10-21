@@ -433,41 +433,32 @@
   $("mapThisAuction").onclick=()=>{safeFly(a.lng,a.lat);closePanel()};
 }
   function placeBid(id,amount){
-    const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
-    if(!a||a.status!=="live")return showAuctions();
-    if(a.seller===USER)return showAuction(id,"Du kannst nicht auf dein eigenes Objekt bieten.");
-    if(!Number.isSafeInteger(amount)||amount<bidFloor(a)||amount%STEP!==0)return showAuction(id,`Mindestgebot ${money(bidFloor(a))}, in Schritten von CHF ${STEP}.`);
-    const previous=highest(a)?.user===USER?highest(a).amount:0;
-    if(amount>freeBalance()+previous)return showAuction(id,"Dein verfügbares Demo-Guthaben reicht für dieses Gebot nicht aus.");
-    a.bids.push({user:USER,amount,at:new Date().toISOString()});save();updateHeader();
-    showAuction(id,`Gebot ${money(amount)} gespeichert. Der Betrag ist bis Auktionsende im Demo-Konto reserviert.`);
-  }
+  // A client with a backgrounded tab must reconcile Swiss auction deadlines
+  // before accepting a bid. The server will enforce deadlines in production.
+  syncScheduledAuctions(false);
+  const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id)),now=weekly.now();
+  if(!a)return showAuctions();
+  if(a.status!=="live"||!a.startsAt||!a.endsAt||now<a.startsAt||now>=a.endsAt)
+    return showAuction(id,"Gebote sind nur zwischen dem offiziellen Start und Ende (20:00 Schweizer Zeit) möglich.");
+  if(a.seller===USER)return showAuction(id,"Du kannst nicht auf dein eigenes digitales Gebäude bieten.");
+  if(!Number.isSafeInteger(amount)||amount<bidFloor(a)||amount%STEP!==0)
+    return showAuction(id,`Mindestgebot ${money(bidFloor(a))} in Schritten von CHF ${STEP}.`);
+  const previous=highest(a)?.user===USER?highest(a).amount:0;
+  if(amount>freeBalance()+previous)return showAuction(id,"Dein verfügbares Demo-Guthaben reicht für dieses Gebot nicht aus.");
+  a.bids.push({user:USER,amount,at:new Date(now).toISOString()});
+  save();updateHeader();renderUpcomingWidget();
+  showAuction(id,`Gebot ${money(amount)} gespeichert. Der Betrag ist bis Auktionsende reserviert (${weekly.format(a.endsAt)}).`);
+}
   function finishAuction(id){
-    if(!game.adminPreview)return showAdmin();
-    const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
-    if(!a||a.status!=="live")return showAdmin();
-    const top=highest(a);
-    if(!top){a.status="expired";save();syncMap();showAuctions();return}
-    if(balance(top.user)<top.amount && top.user===USER)return showAuction(id,"Fehler: Guthaben für das Höchstgebot fehlt.");
-    if(top.user===USER)game.wallets[USER]-=top.amount;
-    if(a.seller)game.wallets[a.seller]=balance(a.seller)+top.amount;
-    const existing=a.propertyId?c.buildings.find(b=>String(b.id)===String(a.propertyId)):null;
-    const previousPrice=existing?int(existing.lastAuctionPrice):0;
-    const record={id:a.id,propertyId:a.propertyId||a.id,name:a.name,amount:top.amount,buyer:top.user,
-      seller:a.seller,at:new Date().toISOString(),resale:Boolean(a.propertyId),previousPrice,resaleGain:existing?top.amount-previousPrice:null};
-    c.sales.push(record);
-    a.status="sold";
-    if(a.propertyId){
-      const b=c.buildings.find(b=>String(b.id)===String(a.propertyId));
-      if(b){b.holder=top.user;b.lastAuctionPrice=top.amount;b.lastAuctionDate=new Date().toLocaleDateString("de-CH");b.previousPrice=previousPrice;b.kind=b.holder===USER?"owned":"active"}
-    }else{
-      c.buildings.push({id:a.id,name:a.name,holder:top.user,kind:top.user===USER?"owned":"active",
-        lng:a.lng,lat:a.lat,address:a.address,units:a.units,
-        lastAuctionPrice:top.amount,lastAuctionDate:new Date().toLocaleDateString("de-CH"),historical:false});
-    }
-    game.transactions.push({type:"purchase",amount:-top.amount,title:a.name,at:record.at});
-    save();syncMap();showAuction(id,"Auktion abgeschlossen. Das digitale Gebäude wurde dem Käufer zugeordnet.");
-  }
+  if(!game.adminPreview)return showAdmin("Nur die Demo-Administration darf den Abschluss prüfen.");
+  const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
+  if(!a)return showAdmin("Auktionsobjekt nicht gefunden.");
+  if(!a.endsAt||weekly.now()<a.endsAt)
+    return showAdmin(`Der Zuschlag erfolgt erst am vorgesehenen Ende: ${a.endsAt?weekly.format(a.endsAt):"noch nicht terminiert"}.`);
+  const result=settleAuction(c,a,weekly.now());
+  if(result){save();syncMap();}
+  showAuction(id,result?"Die digitale Auktion ist abgeschlossen.":"Der Auktionsstatus ist bereits aktualisiert.");
+}
   function showActive(){
     activate("active");const c=ensureCity(),rows=[...c.buildings].sort((a,b)=>b.lastAuctionPrice-a.lastAuctionPrice);
     openPanel(`<div class="eyebrow">DIGITALE IMMOBILIEN · ${esc(city().name).toUpperCase()}</div><h2>Verkaufte Gebäude</h2>
