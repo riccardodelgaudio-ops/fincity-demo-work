@@ -1,56 +1,83 @@
 # FinCity — digitales Immobilien-Auktionsspiel (Demo)
 
 ## Grundidee
-FinCity ist ein Spiel auf einer echten Schweizer Karte. Ein User erwirbt **ein digitales FinCity-Spielgebäude** am echten Kartenstandort, **nicht** die echte Immobilie und keine Rechte daran. Ein Gebäude wird als Ganzes gehandelt. Keine Mieter, Mietwohnungen, Kopierstrategien, Anlegerdepots, Asset Allocation oder finanzielle Rendite.
+FinCity ist ein Spiel auf einer echten Schweizer Karte. Spieler ersteigern **digitale FinCity-Spielgebäude**, die realen Kartenstandorten zugeordnet sind — **nicht** die reale Immobilie oder irgendwelche Rechte daran. Ein ganzes Gebäude ist jeweils ein Spielobjekt. Keine Mieter, vermieteten Unterwohnungen, Strategie-Kopien, Depot- oder Asset Allocation.
+
+## Neuer wöchentlicher Auktionskalender pro Stadt
+
+| Wöchentliches Auktionsfenster | Start | Ende |
+|---|---|---|
+| City Drop 1 | **Montag, 20:00 Uhr** | **Freitag, 20:00 Uhr** |
+| City Drop 2 | **Dienstag, 20:00 Uhr** | **Samstag, 20:00 Uhr** |
+| City Drop 3 | **Mittwoch, 20:00 Uhr** | **Sonntag, 20:00 Uhr** |
+
+- Diese Uhrzeiten gelten für **jede Stadt separat** und durchgehend in der Zeitzone **Europe/Zurich (MEZ/MESZ)**. Zeitumstellungen werden berücksichtigt.
+- Es gibt in dieser Demo **drei feste Zeitfenster pro Stadt und Woche**. Das ältere Modell mit zwei Basisauktionen plus einer weiteren pro 250 Spielern wird vorläufig ausgesetzt.
+- Die Spielerzahl bleibt als Demo-Information verfügbar. Ein künftig dynamisches Kontingent nach aktiven Nutzern oder Nachfrage muss separat abgestimmt werden.
+- Jeder Wochenplan enthält eine **zufällige, aber nach Stadt und Kalenderwoche stabile Auswahl** aus noch nicht verkauften, freigegebenen Spielgebäuden. Die Auswahl bleibt beim Neuladen des Browsers bestehen. Dieselbe Immobilie kann nicht gleichzeitig auf zwei zeitlich überlappende Slots verteilt werden.
+- Die Administration darf für **noch nicht gestartete** Slots das Gebäude ändern, die noch offenen Objekte neu mischen oder ein Los freilassen. Sobald das Zeitfenster beginnt, ist die Zuordnung gesperrt.
+- Drei feste Slots garantieren **keine erfundenen Immobilien**: Falls nicht genügend freigegebene Objekte vorhanden sind, erscheint «Gebäude wird noch ausgewählt». Spieler können auf der realen Karte weitere Standorte vorschlagen; nur die Administration nimmt sie in den freigegebenen Pool auf.
+- Bei fehlenden Geboten endet die Auktion ohne Verkauf. Ein solches Objekt darf später erneut angeboten werden; das nächste Auktionsereignis erhält eine **neue ID**, damit die alte Historie erhalten bleibt.
+
+## Kleine Vorschau der nächsten Auktionen
+
+Die Stadtübersicht und der Bereich «Auktionen» zeigen die **nächsten drei laufenden oder bevorstehenden** City Drops mit:
+- Stadt und Gebäude,
+- Starttag und Endtag, jeweils um 20:00 Uhr Schweizer Zeit,
+- genauer Zeit-/Datumsangabe, Status (bald/live/beendet),
+- soweit verfügbar Standort und Startpreis.
+
+Auf grossen Desktop-Bildschirmen gibt es zusätzlich eine kompakte, dauerhaft sichtbare Vorschau rechts auf der Karte. Auf kleinen Bildschirmen bleibt die Vorschau innerhalb der Stadt-/Auktionsansicht zugänglich.
 
 ## Spielablauf
-1. Stadt auf der Karte auswählen, geplante und aktive City Drops ansehen.
-2. Nur ein Administrator gibt die Auktionslose frei (in der Demo über einen klar gekennzeichneten **unsicheren Admin-Testschalter**).
-3. Während einer aktiven Auktion bieten Spieler mit ihrem verfügbaren Spielguthaben. Das Höchstgebot wird reserviert.
-4. Bei Auktionsende bekommt der Höchstbietende das digitale Spielgebäude, sein Guthaben sinkt und der neue Eigentümer erscheint im Profil.
-5. Eigentümer können ihr digitales Gebäude für eine Zweitmarkt-Auktion **vorschlagen**; es braucht erneut einen Admin-Start.
-6. Admin-Auktionsstarts erzeugen derzeit nur lokale In-App-Meldungen. Ein echtes Push-System ist noch nicht implementiert.
 
-Alle Demo-Transaktionen werden im lokalen Browser gespeichert und sind **nicht für Multiuser-Betrieb geeignet**.
+1. Stadt auf der Karte auswählen und die nächsten drei City Drops ansehen.
+2. Aus dem vom Admin freigegebenen Gebäudevorrat wird pro Stadt/Woche eine wechselnde Vorauswahl erstellt; Admins können zukünftige Lose anpassen.
+3. Beim Startzeitpunkt (Montag/Dienstag/Mittwoch **20:00 Uhr**) wird der zugeordnete City Drop **automatisch in der geöffneten Demo** als «live» markiert. Erst danach dürfen Spieler bieten. Das Höchstgebot wird im Demo-Konto reserviert.
+4. Beim vorgesehenen Ende (Freitag/Samstag/Sonntag **20:00 Uhr**) wird die Auktion beim nächsten laufenden Browser-Abgleich abgeschlossen. Der Höchstbietende erhält bei gültigem Guthaben das digitale Gebäude; sein Guthaben wird belastet. Ohne gültiges Gebot endet sie ohne Verkauf.
+5. Ein Eigentümer kann seine digitale Immobilie für einen Wiederverkauf **vorschlagen**; auch für diesen gilt die Admin-Freigabe und eines der festen Wochenfenster.
+6. Ein gestarteter City Drop erzeugt eine lokale In-App-Meldung; echte Push-Nachrichten an andere Geräte sind noch nicht vorhanden.
 
-## Begrenztes Angebot / Knappheit
-Vorläufige, testbare Formel für den wöchentlichen Auktionsstart je Stadt:
-
-`Freigaben = min(10, 2 + floor(aktive_stadtspieler / 250))`
-
-Beispiele: 100 aktive User → 2 Freigaben; 250 → 3; 500 → 4; maximal 10. Das Limit wird pro Stadt und Kalenderwoche bei **Auktionsstart**, nicht beim Auktionsende, verbraucht. Nicht freigegebene Gebäude bleiben vorgemerkt.
-
-**Vor echtem Start definieren:** «aktive Stadtspieler» als eindeutige, verifizierte Accounts mit Aktivität in den letzten 7 Tagen; Bot- und Mehrfachaccount-Schutz; mögliche redaktionelle Obergrenze bei Nachfragespitzen und Stadtwechseln.
+**Wichtig:** Dieses Projekt ist aktuell eine **rein statische Browser-Demo**. Die zeitlichen Übergänge erfolgen nur bei geöffnetem/erneut geöffnetem Browser. Sie sind **keine echte serverseitig garantierte Uhrzeit-Automation**, und die Spielstände werden **nicht zwischen Geräten synchronisiert**. Für einen öffentlichen Multiplayer-Start braucht FinCity serverseitige Auktionen mit autoritativer Schweizer Zeit, gesicherte Admin-Berechtigungen, atomare Gebotsprüfungen, zuverlässige Jobs/Worker für den Abschluss und transaktionale Guthabenbuchungen.
 
 ## Anfangspreise
-| Gebäudegrösse (Wohnungen nur als Grössenmerkmal) | Anfangspreis |
-|---|---:|
-| 1–4 | CHF 100 |
-| 5–10 | CHF 200 |
-| 11–20 | CHF 250 |
-| über 20 | CHF 300 |
 
-Keine Wohnung wird einzeln vermietet oder gehandelt. Die Fläche in m² wird angezeigt, **sofern verifiziert**; ansonsten «nicht verifiziert». Die realen Kartenstandorte allein sind keine Grundstücksnachweise. Exakte Adressen und Objektverknüpfung im Echtbetrieb über offizielle Gebäude-IDs prüfen.
+| Gebäudegrösse (Wohnungen ausschliesslich als Grössenmerkmal) | Digitaler Startpreis |
+|---|---:|
+| 1–4 Wohnungen | CHF 100 |
+| 5–10 Wohnungen | CHF 200 |
+| 11–20 Wohnungen | CHF 250 |
+| über 20 Wohnungen | CHF 300 |
+
+Keine Wohnung wird einzeln vermietet oder gehandelt. Gebäudegrössen in m² und genaue Adressen werden nur als verifiziert angezeigt, wenn die Daten vorliegen; ansonsten «nicht verifiziert» bzw. «Adresse wird geprüft». Die realen Kartenstandorte allein sind keine Grundbuchnachweise.
 
 ## Wertanzeige und Ranglisten
-- **Verkaufte Immobilien** = Zahl einzigartiger Spielgebäude mit bestätigtem Verkauf.
-- **Plattformwert** = Summe der **jeweils letzten Zuschlagspreise** aller verkauften digitalen Gebäude. Ein Weiterverkauf ersetzt für dieses Gebäude den vorherigen Betrag (kein doppeltes Zählen).
-- **Persönlicher Wert** = Summe der jeweils letzten Zuschlagspreise der eigenen Gebäude. Das ist ein historischer Spielwert, **kein geschätzter Marktwert**.
-- Beispielhistorie der Demo wird separat als Demo-Beispielbasis behandelt. Die Zähler sind keine Live-Wirtschaftsdaten.
 
-## Monumente: Vorschlag für Preise, nicht handelbare Immobilien
-- **Jahres-Rekordzuschlag** je Stadt: höchster fair abgeschlossener Auktionskauf.
-- **Bester Wiederverkauf**: prozentualer Wertzuwachs gegenüber dem vorherigen Zuschlag (nur unabhängige Handelspartner und Mindesthaltedauer).
-- **Stadtsammler**: ggf. Auszeichnung für abwechslungsreiche Spielaktivität; nicht automatisch an die Person mit den meisten Einzahlungsmöglichkeiten.
-- Ein Monument ist eine **digitale Auszeichnung/Profil-Trophäe**, niemals Eigentum am realen Monument. Die genauen Regeln, Häufigkeiten und Preisformen sind noch offen.
+- **Verkaufte Immobilien:** Anzahl einzigartiger digitaler Spielgebäude mit bestätigtem Verkauf.
+- **Plattformwert:** Summe der **jeweils letzten Zuschlagspreise** aller verkauften digitalen Gebäude. Ein Wiederverkauf ersetzt den vorherigen Betrag; er zählt nicht doppelt.
+- **Persönlicher Immobilienwert:** Summe der letzten Zuschlagspreise aller Gebäude im persönlichen Spielbesitz — **keine Schätzung des Marktwerts echter Häuser**.
+- Historische Demo-Beispielwerte sind **nicht live verifiziert**.
 
-Bietabsprachen, künstliche Eigenkäufe, Wash-Trading, Mehrfachaccounts und Bots müssen vor der Vergabe geprüft werden.
+## Monumente und Stadtpreise (Konzeptvorschläge)
 
-## Guthaben und Kreditkarten
-Diese Demo enthält ausschliesslich **simuliertes Testguthaben** (+100/+500/+1'000) und einen ausdrücklich **deaktivierten Kreditkarten-Button**. Es gibt keine Kartenerfassung und keine echten Zahlungen. Für einen echten Launch sind ein Zahlungsdienstleister mit gehostetem Checkout, serverseitige bestätigte Webhooks, Buchungsledger, Rückerstattungen, Chargeback-/Betrugsbearbeitung, sichere Rollen und entsprechende rechtliche/steuerliche Prüfungen erforderlich. Kein Guthaben oder Kaufzustand darf im Echtbetrieb vom Browser als alleiniger Wahrheitspunkt geführt werden.
+- **Höchster Jahreszuschlag:** grösste faire, abgeschlossene digitale Auktion in einer Stadt.
+- **Bester Wiederverkauf:** prozentuale Wertsteigerung beim Verkauf (nur unabhängige Käufer und nach Mindesthaltedauer).
+- **Stadtsammler:** mögliche Auszeichnung für Spielaktivität in unterschiedlichen Stadtteilen.
 
-## Technischer Stand / technische Schulden
-- Das neue `game-mode.js` stellt Spiel-, Konto-, Ranglisten- und Admin-Ansichten bereit und überschreibt die ursprünglichen Anlegeransichten. `game-mode.css` ergänzt das Design.
-- Die bisherige Karten-Engine und ihre statischen Seed-Daten existieren für Kompatibilität noch im Hintergrund; die alten Anleger-Skripte wurden aus `index.html` entfernt. Das vollständige Bereinigen der alten Datentypen (`investment`, `allocation` etc.) ist für einen echten Neuaufbau der Engine vorgesehen.
-- Kein Backend, kein echter Account-Login, keine sichere Adminberechtigung, kein Multiuser-Bieten, keine Kartenzahlungen, keine echten Push-Benachrichtigungen.
-- Die Demo-Daten dienen der Visualisierung; Gebäude- und Adressdaten vor echter Freischaltung verifizieren.
+Monumente sind **digitale Auszeichnungen** und keine käuflichen Grundstücke. Bevor solche Auszeichnungen vergeben werden, sind konkrete Kriterien, Missbrauchsprüfungen (z. B. abgestimmte Käufe, Mehrfachaccounts, Bots) und allfällige steuerliche/rechtliche Aspekte festzulegen.
+
+## Guthaben und Test-Kreditkarte
+
+Diese Demo enthält **simuliertes Spielguthaben** (+CHF 100, +CHF 500, +CHF 1'000) und eine **simulierte Test-Kreditkartenbestätigung**, die erst nach explizitem Bestätigen Testguthaben verbucht. Es werden **keine Kreditkartennummern erfasst** und **keine echten Zahlungen ausgelöst**.
+
+Vor einem Echtbetrieb sind ein Zahlungsdienstleister mit gehostetem Checkout, bestätigte serverseitige Webhooks, ein Buchungsledger, Rückerstattungen/Chargebacks, Betrugs- und Bot-Schutz sowie rechtliche/steuerliche Prüfungen notwendig. Der Browser darf nie allein über Guthaben oder Zuschläge entscheiden.
+
+## Technischer Stand
+
+- `weekly-auctions.js` berechnet die Schweizer Zeitfenster (einschliesslich Sommer-/Winterzeit) und die wochenabhängige, reproduzierbare Gebäudeauswahl.
+- `game-mode.js` verwaltet lokale Wochenpläne, Auktionen, Guthaben, Profile, Admin-Zuordnung und Statusübergänge.
+- `game-mode.css` und `index.html` zeigen die Stadtvorschau, den Auktionsplan und die kompakte Karten-Vorschau.
+- `map-layers-fix.js` unterstützt neben numerischen IDs auch die String-IDs von vorgeschlagenen oder wiederverkauften Spielgebäuden.
+- `generic-buildings.js` speichert Kartenstandort-Vorschläge lokal in einer Admin-Warteschlange.
+- Das alte Investmentmodell ist aus der aktiven Oberfläche entfernt; Teile der ursprünglichen Karten-Seed-Daten enthalten aus Kompatibilitätsgründen noch historische Investmentbegriffe und werden vor Produktion bereinigt.
+- Keine echte Multiplayer-Synchronisation, Authentifizierung, Push-Infrastruktur oder Kartenzahlung.
