@@ -317,8 +317,10 @@
     openPanel(`<div class="eyebrow">CITY CHALLENGES · ${esc(city().name)}</div><h2>Jahres-Bestenliste ${year}</h2>
       <div class="card"><strong>🏆 Höchster Auktionszuschlag</strong>
         ${top.map((r,i)=>`<div class="rankrow"><b>#${i+1}</b><span><strong>${esc(r.buyer)}</strong><div class="rankmeta">${esc(r.name)}</div></span><span class="rankret">${money(r.amount)}</span></div>`).join("")||'<p class="note">Noch keine Verkäufe in diesem Jahr.</p>'}</div>
-      <div class="card"><strong>🔁 Bester Wiederverkauf</strong><div class="note">${resales.length} Wiederverkäufe in ${year}. Für eine faire Auszeichnung zählen später nur Verkäufe zwischen unabhängigen Spielern mit einer Mindesthaltedauer. Diese Regeln sind noch ein Vorschlag.</div></div>
-      <div class="card"><strong>Preisideen statt Investment-Rendite</strong><div class="note">Die Bestenliste belohnt Gameplay: Rekordzuschlag, gute Verkäufe und Sammlungserfolge. Kein Depot, keine Finanzrendite und keine kopierbaren Strategien.</div></div>${disclaimer()}`);
+      <div class="card"><strong>🔁 Bester Wiederverkauf · ${year}</strong>
+ ${resales.map((r,i)=>`<div class="rankrow"><b>#${i+1}</b><span><strong>${esc(r.seller||"–")}</strong><div class="rankmeta">${esc(r.name)} · ${money(r.previousPrice)} → ${money(r.amount)}</div></span><span class="rankret">${r.resaleGain>=0?"+":""}${Math.round(r.resaleGain/r.previousPrice*100)} %</span></div>`).join("")||'<p class="note">Noch keine Wiederverkäufe in diesem Jahr.</p>'}
+<div class="note">Für die spätere Auszeichnung zählen nur faire Verkäufe zwischen unabhängigen Spielern mit Mindesthaltedauer. Diese Regeln sind noch ein Vorschlag.</div></div>
+      <div class="card"><strong>Preisideen statt Investment-Rendite</strong><div class="note">Die Bestenliste belohnt Gameplay: Rekordzuschlag, gute Verkäufe und Sammlungserfolge. Es zählen digitale Spiel-Auktionen und Sammlererfolge.</div></div>${disclaimer()}`);
   }
   function showTrophy(id){
     const t=trophies.find(t=>String(t.id)===String(id));
