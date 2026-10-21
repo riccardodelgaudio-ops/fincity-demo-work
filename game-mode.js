@@ -151,7 +151,7 @@
     activate("auctions");const c=ensureCity();
     openPanel(`<div class="eyebrow">CITY DROPS · ${esc(city().name).toUpperCase()}</div><h2>Immobilien-Auktionen</h2>
       <div class="fc-hero"><span>KNAPPE FREIGABEN</span><strong>${used(c)} / ${quota(c)} diese Woche</strong><small>${available(c)} weitere Starts durch Admin möglich</small></div>
-      <p class="note">Jedes Los ist ein <strong>ganzes digitales Gebäude</strong> – ohne Mietwohnungen, Depots oder Anlagestrategien.</p>
+      <p class="note">Jedes Los ist ein <strong>ganzes digitales Gebäude</strong> – als reines Spielobjekt.</p>
       <div class="active-list">${dropList(c)}</div><button class="action secondary" id="auctionAdmin">ADMINISTRATION (DEMO)</button>
       ${disclaimer()}`);
     panel.querySelectorAll("[data-auction]").forEach(el=>el.onclick=()=>showAuction(el.dataset.auction));
@@ -340,7 +340,7 @@ function showCardCheckout(amount,flash=""){
       <div class="card"><strong>🔁 Bester Wiederverkauf · ${year}</strong>
  ${resales.map((r,i)=>`<div class="rankrow"><b>#${i+1}</b><span><strong>${esc(r.seller||"–")}</strong><div class="rankmeta">${esc(r.name)} · ${money(r.previousPrice)} → ${money(r.amount)}</div></span><span class="rankret">${r.resaleGain>=0?"+":""}${Math.round(r.resaleGain/r.previousPrice*100)} %</span></div>`).join("")||'<p class="note">Noch keine Wiederverkäufe in diesem Jahr.</p>'}
 <div class="note">Für die spätere Auszeichnung zählen nur faire Verkäufe zwischen unabhängigen Spielern mit Mindesthaltedauer. Diese Regeln sind noch ein Vorschlag.</div></div>
-      <div class="card"><strong>Preisideen statt Investment-Rendite</strong><div class="note">Die Bestenliste belohnt Gameplay: Rekordzuschlag, gute Verkäufe und Sammlungserfolge. Es zählen digitale Spiel-Auktionen und Sammlererfolge.</div></div>${disclaimer()}`);
+      <div class="card"><strong>Preisideen für Stadt-Champions</strong><div class="note">Die Bestenliste belohnt Gameplay: Rekordzuschlag, gute Verkäufe und Sammlungserfolge. Es zählen digitale Spiel-Auktionen und Sammlererfolge.</div></div>${disclaimer()}`);
   }
   function showTrophy(id){
     const t=trophies.find(t=>String(t.id)===String(id));
