@@ -335,71 +335,103 @@
     return `<p class="fc-disclaimer">SPIEL-DEMO · Kauf und Besitz betreffen ausschliesslich digitale FinCity-Spielobjekte an realen Kartenstandorten. Kein Eigentum und keine Rechte an der realen Immobilie. Keine echten Zahlungen.</p>`;
   }
   function showCity(){
-    activate("city");const c=ensureCity(),t=globalStats();
-    openPanel(`<div class="eyebrow">FINCITY · DIGITALE STADTWELT</div><h2>Entdecke ${esc(city().name)}</h2>
-      ${citySelect()}<div class="fc-hero"><span>WÖCHENTLICHE CITY DROPS</span><strong>${quota(c)} Auktionen</strong><small>${used(c)} von ${quota(c)} Freigaben gestartet · ${c.userCount} aktive Demo-Spieler</small></div>
-      <div class="grid2"><div class="metric"><span>PLATTFORMWEIT VERKAUFT</span><strong>${t.count}</strong></div><div class="metric"><span>DIGITALER PLATTFORMWERT</span><strong>${money(t.value)}</strong></div></div>
-      <div class="card"><strong>Knappheit nach Spielerzahl</strong><div class="note">Je Stadt werden zunächst 2 Spiel-Immobilien pro Woche freigegeben. Pro 250 aktiven Spielern kommt 1 weiterer City Drop dazu, maximal 10 pro Woche. Neue Auktionen startet ausschliesslich die Administration.</div></div>
-      <div class="card"><strong>Nächste Auktionen · ${esc(city().name)}</strong>
-        ${c.drops.filter(a=>a.status==="live"||a.status==="planned").slice(0,4).map(a=>`<div class="owned-row fc-click" data-auction="${esc(a.id)}"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${a.status==="live"?"🔴 LIVE":"⏳ GEPLANT"} · ab ${money(a.startingBid)}</div></span><b>→</b></div>`).join("")||'<div class="note">Zurzeit keine weiteren Auktionsobjekte.</div>'}
-      </div>
-      <button class="action" id="cityAuctions">ALLE AUKTIONEN ANSEHEN</button>
-      ${disclaimer()}`);
-    onCitySelect();
-    $("cityAuctions").onclick=showAuctions;
-    panel.querySelectorAll("[data-auction]").forEach(el=>el.onclick=()=>showAuction(el.dataset.auction));
-  }
+  activate("city");
+  const c=ensureCity(),stats=globalStats(),now=weekly.now(),slots=upcomingSlots(c,now);
+  openPanel(`<div class="eyebrow">FINCITY · DIGITALE STADTWELT</div><h2>Entdecke ${esc(city().name)}</h2>
+    ${citySelect()}
+    <div class="fc-hero">
+      <span>WÖCHENTLICHE CITY DROPS · ${esc(city().name).toUpperCase()}</span>
+      <strong>3 Versteigerungen pro Woche</strong>
+      <small>Montag → Freitag, Dienstag → Samstag, Mittwoch → Sonntag · jeweils 20:00 Uhr (Schweizer Zeit)</small>
+    </div>
+    <div class="grid2"><div class="metric"><span>PLATTFORMWEIT VERKAUFT</span><strong>${stats.count}</strong></div>
+      <div class="metric"><span>DIGITALER PLATTFORMWERT</span><strong>${money(stats.value)}</strong></div></div>
+    <div class="card fc-next-section">
+      <div class="fc-section-heading"><strong>🔨 Nächste Auktionen</strong><span>MEZ / MESZ</span></div>
+      <p class="note">Für jede Stadt werden unterschiedliche digitale Gebäude aus dem freigegebenen Bestand ausgewählt. Einmal angekündigte Objekte bleiben bis zum Auktionsende fest zugeteilt.</p>
+      <div class="fc-schedule-list">${slots.map(s=>slotHtml(c,s)).join("")}</div>
+    </div>
+    <button class="action" id="cityAuctions">ALLE AUKTIONEN IN ${esc(city().name).toUpperCase()}</button>
+    <div class="card"><strong>Warum sind Immobilien knapp?</strong>
+      <div class="note">Pro Stadt gibt es zunächst drei feste, zeitversetzte City Drops pro Woche. Die Auswahl wechselt aus noch nicht verkauften, freigegebenen Spielgebäuden. Neue Standorte können vorgeschlagen werden; nur die Administration gibt sie frei. Zusätzliche Freigaben abhängig von Spielerzahlen sind für eine spätere Version vorgesehen.</div></div>
+    ${disclaimer()}`);
+  onCitySelect();
+  $("cityAuctions").onclick=showAuctions;
+  bindUpcoming(panel);
+}
   function dropList(c){
-    return c.drops.filter(a=>a.status!=="cancelled").map(a=>{
-      const top=highest(a),label=a.status==="live"?"🔴 LIVE":a.status==="planned"?"⏳ GEPLANT":a.status==="sold"?"✓ VERKAUFT":"BEENDET";
-      return `<div class="active-row fc-click" data-auction="${esc(a.id)}"><div><strong>${esc(a.name)}</strong>
-        <div class="rankmeta">${esc(a.address)}</div>
-        <div class="rankmeta">${a.units??"–"} Wohneinheiten (nur Grösse) · ${a.sizeM2?`${a.sizeM2} m²`:"m² unbekannt"} · ${label}</div></div>
-        <div class="fc-pricecol"><div class="eyebrow">${top?"HÖCHSTGEBOT":"STARTPREIS"}</div><div class="price">${money(top?.amount||a.startingBid)}</div></div></div>`;
-    }).join("");
-  }
+  const archive=c.drops.filter(a=>a.status==="sold"||a.status==="expired")
+    .sort((a,b)=>(b.endsAt||0)-(a.endsAt||0)).slice(0,6);
+  return archive.map(a=>{
+    const top=highest(a);
+    return `<button type="button" class="fc-archive-row" data-auction="${esc(a.id)}">
+      <span><strong>${esc(a.name)}</strong><small>${esc(a.address)}</small></span>
+      <span><b>${a.status==="sold"?money(top?.amount||a.startingBid):"Ohne Verkauf"}</b>
+      <small>${a.endsAt?esc(weekly.format(a.endsAt)):"Historie"}</small></span></button>`;
+  }).join("")||'<p class="note">In dieser Stadt gibt es noch keine abgeschlossenen digitalen Auktionen.</p>';
+}
   function showAuctions(){
-    activate("auctions");const c=ensureCity();
-    openPanel(`<div class="eyebrow">CITY DROPS · ${esc(city().name).toUpperCase()}</div><h2>Immobilien-Auktionen</h2>
-      <div class="fc-hero"><span>KNAPPE FREIGABEN</span><strong>${used(c)} / ${quota(c)} diese Woche</strong><small>${available(c)} weitere Starts durch Admin möglich</small></div>
-      <p class="note">Jedes Los ist ein <strong>ganzes digitales Gebäude</strong> – als reines Spielobjekt.</p>
-      <div class="active-list">${dropList(c)}</div><button class="action secondary" id="auctionAdmin">ADMINISTRATION (DEMO)</button>
-      ${disclaimer()}`);
-    panel.querySelectorAll("[data-auction]").forEach(el=>el.onclick=()=>showAuction(el.dataset.auction));
-    $("auctionAdmin").onclick=showAdmin;
-  }
+  activate("auctions");const c=ensureCity(),now=weekly.now();
+  const week=weekly.weekKey(now);
+  const allThisWeek=ensureWeekSchedule(c,week,now);
+  const next=upcomingSlots(c,now);
+  openPanel(`<div class="eyebrow">CITY DROPS · ${esc(city().name).toUpperCase()}</div><h2>Immobilien-Auktionen</h2>
+    <div class="fc-hero"><span>STADTAUKTIONEN · 20:00 UHR (SCHWEIZ)</span>
+      <strong>3 feste Zeitfenster</strong>
+      <small>Mo 20:00–Fr 20:00 · Di 20:00–Sa 20:00 · Mi 20:00–So 20:00</small>
+    </div>
+    <div class="card fc-next-section"><div class="fc-section-heading"><strong>🔨 Nächste & laufende Auktionen</strong><span>${esc(city().name)}</span></div>
+      <div class="fc-schedule-list">${next.map(s=>slotHtml(c,s)).join("")}</div></div>
+    <div class="card"><strong>Wochenplan · ab ${esc(weekly.formatDay(allThisWeek[0].startsAt))}</strong>
+      <p class="note">Alle drei Termine werden aus einem begrenzten Bestand digitaler Spielgebäude zusammengestellt. Diese Uhrzeiten gelten für jede Stadt.</p>
+      <div class="fc-schedule-list">${allThisWeek.map(s=>slotHtml(c,s,true)).join("")}</div></div>
+    <div class="card"><strong>Zuletzt abgeschlossen</strong><div class="fc-archive-list">${dropList(c)}</div></div>
+    <button class="action secondary" id="auctionAdmin">AUKTIONSPLAN VERWALTEN (DEMO-ADMIN)</button>
+    ${disclaimer()}`);
+  bindUpcoming(panel);
+  panel.querySelectorAll("[data-auction]").forEach(el=>el.onclick=()=>showAuction(el.dataset.auction));
+  $("auctionAdmin").onclick=showAdmin;
+}
   function showAuction(id,flash=""){
-    const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
-    if(!a)return showAuctions();
-    activate("auctions");
-    const top=highest(a),mine=top?.user===USER,live=a.status==="live";
-    const min=bidFloor(a);
-    openPanel(`<div class="eyebrow">CITY DROP · ${esc(city().name).toUpperCase()} · ${esc(a.status).toUpperCase()}</div><h2>${esc(a.name)}</h2>
-      ${flash?`<div class="fc-flash" role="status">${esc(flash)}</div>`:""}
-      <div class="card"><div class="previewrow"><span>Standort</span><b>${esc(a.address)}</b></div>
-        <div class="previewrow"><span>Objekt</span><b>Ganzes digitales Gebäude</b></div>
-        <div class="previewrow"><span>Wohneinheiten (Grössenklasse)</span><b>${a.units??"nicht verifiziert"}</b></div>
-        <div class="previewrow"><span>Gebäudefläche</span><b>${a.sizeM2?`${a.sizeM2} m²`:"nicht verifiziert"}</b></div>
-        <div class="previewrow"><span>Startpreis</span><b>${money(a.startingBid)}</b></div>
-        <div class="previewrow"><span>Status</span><b>${a.status==="live"?"Auktion läuft":a.status==="planned"?"Noch nicht freigegeben":a.status==="sold"?"Verkauft":"Beendet"}</b></div>
-        ${a.seller?`<div class="previewrow"><span>Verkäufer</span><b>${esc(a.seller)}</b></div>`:""}
-      </div>
-      <div class="grid2"><div class="metric"><span>AKTUELLER PREIS</span><strong>${money(top?.amount||a.startingBid)}</strong></div>
-        <div class="metric"><span>GEBOTE</span><strong>${a.bids.length}</strong></div></div>
-      ${live?`<div class="card"><strong>${mine?"Du führst die Auktion":"Mitbieten"}</strong>
-        <p class="note">Verfügbares Demo-Guthaben: ${money(freeBalance())}${mine?` · reserviertes Höchstgebot: ${money(top.amount)}`:""}</p>
-        ${a.seller===USER?'<p class="note">Eigene Immobilien können nicht selbst ersteigert werden.</p>':
-        `<label class="eyebrow" for="bidAmount">DEIN GEBOT IN CHF · MINDESTENS ${money(min)}</label>
-        <input class="fc-input" id="bidAmount" type="number" min="${min}" step="10" value="${min}">
-        <button class="action" id="placeBid">VERBINDLICHES DEMO-GEBOT PLATZIEREN</button>`}</div>`:""}
-      ${a.status==="sold"?`<div class="card"><strong>Verkauft an ${esc(top?.user||"–")}</strong><div class="note">Digitales Objekt · Zuschlag ${money(top?.amount||a.startingBid)}</div></div>`:""}
-      ${game.adminPreview&&live?'<button class="action secondary" id="closeAuction">AUKTION ALS DEMO-ADMIN BEENDEN</button>':""}
-      <button class="action secondary" id="mapThisAuction">AUF KARTE ANSEHEN</button>
-      ${disclaimer()}`);
-    const submit=$("placeBid");if(submit)submit.onclick=()=>placeBid(a.id,Number($("bidAmount").value));
-    const close=$("closeAuction");if(close)close.onclick=()=>finishAuction(a.id);
-    $("mapThisAuction").onclick=()=>{safeFly(a.lng,a.lat);closePanel()};
-  }
+  const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
+  if(!a)return showAuctions();
+  activate("auctions");
+  const top=highest(a),mine=top?.user===USER;
+  const now=weekly.now(),live=a.status==="live"&&now>=a.startsAt&&now<a.endsAt;
+  const min=bidFloor(a),scheduled=Number.isFinite(a.startsAt)&&Number.isFinite(a.endsAt);
+  const start=scheduled?weekly.format(a.startsAt)+" (Schweiz)":"Noch nicht eingeplant";
+  const end=scheduled?weekly.format(a.endsAt)+" (Schweiz)":"Noch nicht eingeplant";
+  const status=a.status==="live"?"🔴 LIVE":a.status==="planned"?"⏳ GEPLANT":
+    a.status==="sold"?"✓ VERKAUFT":a.status==="expired"?"BEENDET · OHNE VERKAUF":"BEENDET";
+  openPanel(`<div class="eyebrow">CITY DROP · ${esc(city().name).toUpperCase()} · ${status}</div><h2>${esc(a.name)}</h2>
+    ${flash?`<div class="fc-flash" role="status">${esc(flash)}</div>`:""}
+    <div class="fc-auction-schedule"><div><small>START</small><strong>${esc(start)}</strong></div>
+      <div><small>ENDE</small><strong>${esc(end)}</strong></div></div>
+    <div class="card"><div class="previewrow"><span>Standort</span><b>${esc(a.address)}</b></div>
+      <div class="previewrow"><span>Objekt</span><b>Ganzes digitales Spielgebäude</b></div>
+      <div class="previewrow"><span>Wohneinheiten (Grössenklasse)</span><b>${a.units??"nicht verifiziert"}</b></div>
+      <div class="previewrow"><span>Gebäudefläche</span><b>${a.sizeM2?`${a.sizeM2} m²`:"nicht verifiziert"}</b></div>
+      <div class="previewrow"><span>Startpreis</span><b>${money(a.startingBid)}</b></div>
+      <div class="previewrow"><span>Status</span><b>${status}</b></div>
+      ${a.seller?`<div class="previewrow"><span>Verkäufer</span><b>${esc(a.seller)}</b></div>`:""}</div>
+    <div class="grid2"><div class="metric"><span>AKTUELLER PREIS</span><strong>${money(top?.amount||a.startingBid)}</strong></div>
+      <div class="metric"><span>GEBOTE</span><strong>${a.bids.length}</strong></div></div>
+    ${a.status==="planned"?`<div class="card"><strong>⏰ Diese Auktion startet automatisch am angegebenen Termin</strong>
+      <p class="note">Die Administration wählt das digitale Gebäude im Voraus aus. Gebote sind ab ${esc(start)} bis ${esc(end)} möglich.</p></div>`:""}
+    ${live?`<div class="card"><strong>${mine?"Du führst die Auktion":"Mitbieten"}</strong>
+      <p class="note">Verfügbares Demo-Guthaben: ${money(freeBalance())}${mine?` · reserviertes Höchstgebot: ${money(top.amount)}`:""}</p>
+      ${a.seller===USER?'<p class="note">Eigene Immobilien können nicht selbst ersteigert werden.</p>':
+      `<label class="eyebrow" for="bidAmount">DEIN GEBOT · MINDESTENS ${money(min)}</label>
+      <input class="fc-input" id="bidAmount" type="number" min="${min}" step="10" value="${min}">
+      <button class="action" id="placeBid">DEMO-GEBOT ABGEBEN</button>`}</div>`:""}
+    ${a.status==="sold"?`<div class="card"><strong>✓ Verkauft an ${esc(top?.user||"–")}</strong>
+      <p class="note">Digitale Immobilie · Zuschlag ${money(top?.amount||a.startingBid)} · ${esc(end)}</p></div>`:""}
+    ${a.status==="expired"?`<div class="card"><strong>Diese Auktion ist beendet</strong><p class="note">Es wurde kein gültiger Zuschlag erteilt. Das Gebäude kann in einer späteren Woche erneut freigegeben werden.</p></div>`:""}
+    <button class="action secondary" id="mapThisAuction">AUF KARTE ANSEHEN</button>
+    ${disclaimer()}`);
+  const submit=$("placeBid");if(submit)submit.onclick=()=>placeBid(a.id,Number($("bidAmount").value));
+  $("mapThisAuction").onclick=()=>{safeFly(a.lng,a.lat);closePanel()};
+}
   function placeBid(id,amount){
     const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
     if(!a||a.status!=="live")return showAuctions();
