@@ -75,10 +75,30 @@
   function freeBalance(){return Math.max(0,balance()-reserved())}
   function highest(a){return a.bids?.length?[...a.bids].sort((x,y)=>y.amount-x.amount)[0]:null}
   function bidFloor(a){return Math.max(a.startingBid||100,(highest(a)?.amount||0)+STEP)}
+  function assetKey(a){return String(a.assetId??a.propertyId??a.id)}
+  function createRetryDrop(cityMarket,expired){
+  if(expired.status!=="expired")return expired;
+  const existingIds=new Set(cityMarket.drops.map(a=>String(a.id)));
+  let id=Math.max(1000,Number(cityMarket.nextAuctionId)||1000);
+  while(existingIds.has(String(id)))id++;
+  cityMarket.nextAuctionId=id+1;
+  const a={
+    ...expired,id,assetId:assetKey(expired),retryOf:expired.id,
+    status:"planned",bids:[],scheduledWeek:null,
+    slotIndex:null,startsAt:null,endsAt:null,startedWeek:null,
+    date:"Neu geplant",
+  };
+  cityMarket.drops.push(a);
+  return a;
+}
   function eligibleDrop(c,a,exclude){
   if(exclude.has(String(a.id)))return false;
   if(a.status!=="planned" && !(a.status==="expired"&&!(a.bids||[]).length))return false;
-  if(!a.propertyId && c.buildings.some(b=>String(b.id)===String(a.id)))return false;
+  // An unsold building may be listed again, but only its newest auction record
+  // is eligible. Historical expired auctions remain immutable.
+  const newest=c.drops.filter(other=>assetKey(other)===assetKey(a)).slice(-1)[0];
+  if(newest!==a)return false;
+  if(!a.propertyId && c.buildings.some(b=>String(b.id)===String(assetKey(a))))return false;
   if(a.propertyId && !c.buildings.some(b=>String(b.id)===String(a.propertyId)&&b.holder===a.seller))return false;
   return true;
 }
@@ -96,8 +116,9 @@
   lineup.forEach(s=>{
     if(s.auctionId || s.blocked || (!newlyCreated&&now>=s.startsAt))return;
     const pool=c.drops.filter(a=>eligibleDrop(c,a,busy));
-    const chosen=weekly.shuffled(pool,`${c.slug}|${week}|${s.index}|${c.shuffleNonce||0}`)[0];
-    if(!chosen)return;
+    const picked=weekly.shuffled(pool,`${c.slug}|${week}|${s.index}|${c.shuffleNonce||0}`)[0];
+    if(!picked)return;
+    const chosen=createRetryDrop(c,picked);
     busy.add(String(chosen.id));
     s.auctionId=chosen.id;
     chosen.status="planned";
@@ -234,7 +255,7 @@
   const c=ensureCity();
   const slots=ensureWeekSchedule(c,week),s=slots.find(x=>x.index===index);
   if(!s||weekly.now()>=s.startsAt)return showAdmin("Dieses Auktionsfenster hat bereits begonnen und ist gesperrt.");
-  const selected=id?c.drops.find(a=>String(a.id)===String(id)):null;
+  let selected=id?c.drops.find(a=>String(a.id)===String(id)):null;
   if(id&&!selected)return showAdmin("Gebäude nicht gefunden.");
   const blocked=new Set();
   Object.entries(c.weeklySchedules).forEach(([k,others])=>{
@@ -248,7 +269,8 @@
   if(old&&String(old.id)!==String(id)){
     old.status="planned";old.scheduledWeek=null;old.startsAt=null;old.endsAt=null;old.slotIndex=null;
   }
-  s.auctionId=id||null;
+  if(selected?.status==="expired")selected=createRetryDrop(c,selected);
+  s.auctionId=selected?selected.id:null;
   s.blocked=!id;
   if(selected){
     selected.status="planned";selected.bids=[];
