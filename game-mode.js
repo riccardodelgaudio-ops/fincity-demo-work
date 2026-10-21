@@ -13,6 +13,7 @@
   if(!game||game.version!==1)game={version:1,wallets:{[USER]:1000},transactions:[],cities:{},adminPreview:false};
   if(!game.wallets)game.wallets={[USER]:1000};
   if(!game.cities)game.cities={};
+  if(!Array.isArray(game.notifications))game.notifications=[];
   if(!Array.isArray(game.transactions))game.transactions=[];
   let currentView="city";
   function save(){try{localStorage.setItem(KEY,JSON.stringify(game))}catch(e){console.warn("FinCity-Demo kann lokal nicht speichern",e)}}
@@ -102,6 +103,8 @@
     if(little)little.textContent=`${city().name.toUpperCase()} · DIGITALE IMMOBILIEN · SPIEL`;
     const top=$("portfolioTop");
     if(top)top.textContent=`MEIN KONTO · ${money(freeBalance())}`;
+    const alerts=document.querySelector(".nav-btn[data-view=alerts] b");
+    if(alerts)alerts.textContent=`MELDUNGEN${game.notifications.filter(n=>!n.read).length?` (${game.notifications.filter(n=>!n.read).length})`:""}`;
   }
   function activate(view){
     currentView=view;
@@ -335,6 +338,15 @@
       <div class="trophygrid">${trophies.map(t=>`<div class="trophy fc-click" data-trophy="${esc(t.id)}"><b>🏛️ ${esc(t.name)}</b><div class="rankmeta">PRESTIGE · PREISREGEL IN PLANUNG</div></div>`).join("")}</div>${disclaimer()}`);
     panel.querySelectorAll("[data-trophy]").forEach(el=>el.onclick=()=>showTrophy(el.dataset.trophy));
   }
+  function showAlerts(){
+  activate("alerts");
+  game.notifications.forEach(n=>n.read=true);save();updateHeader();
+  openPanel(`<div class="eyebrow">CITY DROPS · SPIEL-MELDUNGEN</div><h2>🔔 Neue Auktionen</h2>
+    <div class="card"><strong>Aktivitäten</strong><div class="note">Neue digitale Auktionen erscheinen nach Admin-Start hier. Diese Demo speichert Meldungen nur lokal auf deinem Gerät. Echte Push-Nachrichten an andere Spieler benötigen ein Backend und eine aktive Zustimmung.</div></div>
+    <div class="card">${game.notifications.map(n=>`<div class="owned-row"><span><strong>${esc(n.title)}</strong><div class="rankmeta">${esc(n.city)} · ${new Date(n.at).toLocaleString("de-CH")}</div></span><b>🔔</b></div>`).join("")||'<p class="note">Noch keine neuen City-Drop-Meldungen.</p>'}</div>
+    <button class="action secondary" id="alertAuctions">AUKTIONEN ANSEHEN</button>${disclaimer()}`);
+  $("alertAuctions").onclick=showAuctions;
+}
   function showAdmin(flash=""){
     activate("admin");const c=ensureCity();
     openPanel(`<div class="eyebrow">ADMINISTRATION · NUR SIMULATION</div><h2>City Drops verwalten</h2>
@@ -368,10 +380,12 @@
     if(!a||a.status!=="planned")return showAdmin("Dieses Los kann nicht gestartet werden.");
     if(available(c)<=0)return showAdmin("Wochenlimit erreicht. Starte keine weiteren Auktionen in dieser Stadt.");
     a.status="live";a.startedWeek=weekKey();a.date="Jetzt live · vom Admin freigegeben";
-    save();syncMap();showAdmin(`${a.name} wurde als Demo-Auktion gestartet. Push-Benachrichtigungen sind in dieser Version noch nicht angeschlossen.`);
+    game.notifications.unshift({title:`Neue Auktion: ${a.name}`,city:city().name,at:new Date().toISOString(),read:false});
+    if(game.notifications.length>50)game.notifications.length=50;
+    save();syncMap();showAdmin(`${a.name} wurde als Demo-Auktion gestartet. Die neue In-App-Meldung steht unter «Meldungen».`);
   }
   function initNavigation(){
-    const mappings={city:showCity,auctions:showAuctions,active:showActive,portfolio:showPortfolio,ranking:showRanking,trophies:showTrophies,admin:showAdmin};
+    const mappings={city:showCity,auctions:showAuctions,alerts:showAlerts,active:showActive,portfolio:showPortfolio,ranking:showRanking,trophies:showTrophies,admin:showAdmin};
     document.querySelectorAll(".nav-btn").forEach(btn=>{
       if(btn.dataset.view==="fees"){btn.remove();return}
       btn.onclick=()=>mappings[btn.dataset.view]?.();
@@ -392,7 +406,7 @@
   window.showActive=showActive;window.showBuilding=showBuilding;
   window.showPortfolio=showPortfolio;window.showRanking=showRanking;window.showUser=showPortfolio;
   window.showFees=showWallet;window.showSystem=showTrophies;window.showTrophy=showTrophy;
-  window.showTrophyRanking=showTrophies;
+  window.showTrophyRanking=showTrophies;window.showAlerts=showAlerts;
   window.copyStrategy=showPortfolio;
   const previousSwitch=window.switchCity;
   window.switchCity=function(slug,overview=false){
