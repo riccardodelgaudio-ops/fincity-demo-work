@@ -8,53 +8,51 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.28.1/mapbox-gl.css">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./game-mode.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><div class="logo">FC</div><div><strong>FINCITY</strong><small>ZÜRICH · ANLEGEN · ERFOLG ZEIGEN · BESITZEN</small></div></div>
-    <div class="stats"><span>AKTIVE USER <b>13</b></span><span>GEBÄUDE <b>15</b></span><span>TROPHÄEN <b id="trophyCount">–</b></span></div>
-    <button id="portfolioTop" class="cta">▶ ANLEGER-MODUS</button>
+    <div class="brand"><div class="logo">FC</div><div><strong>FINCITY</strong><small>SCHWEIZ · DIGITALE IMMOBILIEN · AUKTIONSSPIEL</small></div></div>
+    <div class="stats"><span>VERKAUFTE IMMOBILIEN <b>–</b></span><span>PLATTFORMWERT <b>–</b></span><span>AKTIVE AUKTIONEN <b id="trophyCount">–</b></span></div>
+    <button id="portfolioTop" class="cta">MEIN SPIELKONTO</button>
   </header>
   <main id="map" class="map"></main>
   <nav class="side-nav" aria-label="FinCity Hauptnavigation">
     <button class="nav-btn active" data-view="city"><span class="ico">◇</span><b>STADT</b></button>
+    <button class="nav-btn" data-view="alerts"><span class="ico">🔔</span><b>MELDUNGEN</b></button>
     <button class="nav-btn" data-view="auctions"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.7 3.8l6.5 6.5-2.8 2.8-6.5-6.5 2.8-2.8Z"/><path d="M12.2 8.1l-7.7 7.7 3.7 3.7 7.7-7.7"/><path d="M3.2 20.5h9.3"/></svg></span><b>AUKTIONEN</b></button>
-    <button class="nav-btn" data-view="active"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l8-4 8 4v14"/><path d="M8 10h2M14 10h2M8 14h2M14 14h2"/><path d="M7 21v-3h4v3"/><circle cx="18" cy="18" r="3.2" fill="#241d4c"/><path d="m16.7 18 1 1 1.8-2"/></svg></span><b>AKTIVE</b></button>
-    <button class="nav-btn" data-view="portfolio"><span class="ico">◉</span><b>PORTFOLIO</b></button>
-    <button class="nav-btn" data-view="ranking"><span class="ico">🏆</span><b>RANGLISTE</b></button>
-    <button class="nav-btn" data-view="trophies"><span class="ico">🏅</span><b>TROPHÄEN</b></button>
-    <button class="nav-btn" data-view="fees"><span class="ico">%</span><b>GEBÜHREN</b></button>
+    <button class="nav-btn" data-view="active"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l8-4 8 4v14"/><path d="M8 10h2M14 10h2M8 14h2M14 14h2"/><path d="M7 21v-3h4v3"/><circle cx="18" cy="18" r="3.2" fill="#241d4c"/><path d="m16.7 18 1 1 1.8-2"/></svg></span><b>VERKAUFT</b></button>
+    <button class="nav-btn" data-view="portfolio"><span class="ico">◉</span><b>MEIN KONTO</b></button>
+    <button class="nav-btn" data-view="ranking"><span class="ico">🏆</span><b>BESTENLISTE</b></button>
+    <button class="nav-btn" data-view="trophies"><span class="ico">🏅</span><b>MONUMENTE</b></button>
+    <button class="nav-btn" data-view="admin"><span class="ico">⚙</span><b>ADMIN-DEMO</b></button>
   </nav>
-  <section class="map-controls"><button id="investMapBtn" class="active">INVEST</button><button id="satBtn">SATELLIT</button><button id="mapBtn" hidden aria-hidden="true" tabindex="-1">2D</button></section>
+  <section class="map-controls"><button id="investMapBtn" class="active">STADTKARTE</button><button id="satBtn">SATELLIT</button><button id="mapBtn" hidden aria-hidden="true" tabindex="-1">2D</button></section>
   <section class="filters">
     <button class="filter active" data-filter="all">ALLE OBJEKTE</button>
     <button class="filter" data-filter="owned">MEINE GEBÄUDE</button>
-    <button class="filter" data-filter="active">AKTIVE GEBÄUDE</button>
+    <button class="filter" data-filter="active">VERKAUFTE GEBÄUDE</button>
     <button class="filter" data-filter="auction">AUKTIONEN</button>
-    <button class="filter" data-filter="trophy">WAHRZEICHEN & TROPHÄEN</button>
+    <button class="filter" data-filter="trophy">MONUMENTE</button>
   </section>
   <aside id="panel" class="panel" aria-live="polite"></aside>
   <div class="legend"><span><i class="orange"></i>MEIN</span><span><i class="violet"></i>AKTIV</span><span><i class="cyan"></i>AUKTION</span><span><i class="gold"></i>TROPHY</span></div>
-  <div class="build-badge">CANONICAL BUILD · ADDRESS SEARCH</div>
+  <div class="build-badge">FINCITY · DIGITAL GAME DEMO</div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.28.1/mapbox-gl.js"></script>
   <script src="./mapbox-provider.js"></script>
   <script src="./app.js"></script>
   <script src="./mapbox-runtime.js"></script>
   <script src="./map-layers-fix.js"></script>
-  <script src="./building-media.js"></script>
   <script src="./generic-buildings.js"></script>
   <script src="./mapbox-buildings.js"></script>
-  <script src="./leaderboards.js"></script>
-  <script src="./active-sort.js"></script>
   <script src="./zurich-data-fixes.js"></script>
   <script src="./city-network.js"></script>
   <script src="./landmark-media.js"></script>
   <script src="./municipality.js"></script>
-  <script src="./premium-map.js"></script>
   <script src="./mapbox-controls.js"></script>
   <script src="./city-ui-fixes.js"></script>
-  <script src="./market-value.js"></script>
   <script src="./address-search.js"></script>
+  <script src="./game-mode.js"></script>
 </body>
 </html>
