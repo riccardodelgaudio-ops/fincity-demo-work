@@ -285,23 +285,6 @@
     panel.querySelectorAll("[data-building]").forEach(el=>el.onclick=()=>showBuilding(el.dataset.building));
     $("topupWallet").onclick=()=>showWallet();
   }
-function showCardCheckout(amount,flash=""){
-  if(!Number.isSafeInteger(amount)||amount<10||amount>5000||amount%10!==0)return showWallet("Bitte einen Betrag zwischen CHF 10 und CHF 5'000 in Schritten von CHF 10 auswählen.");
-  activate("portfolio");
-  openPanel(`<div class="eyebrow">TEST-CHECKOUT · KEINE ECHTE KREDITKARTENZAHLUNG</div><h2>💳 Simulierte Kartenzahlung</h2>
-    ${flash?`<div class="fc-flash">${esc(flash)}</div>`:""}
-    <div class="card"><div class="previewrow"><span>Testbetrag</span><b>${money(amount)}</b></div>
-      <div class="previewrow"><span>Demo-Zahlungsart</span><b>Spiel-Kreditkarte · TEST</b></div>
-      <div class="note">Keine echte Kreditkarte erforderlich. Bitte keine Kartendaten eingeben. Es wird kein Geld abgebucht.</div></div>
-    <button class="action" id="confirmTestCard">TESTZAHLUNG BESTÄTIGEN · ${money(amount)}</button>
-    <button class="action secondary" id="cancelTestCard">ABBRECHEN</button>${disclaimer()}`);
-  $("confirmTestCard").onclick=()=>{
-    game.wallets[USER]=balance()+amount;
-    game.transactions.push({type:"simulated-card-payment",amount,title:"Simulierte Kreditkartenzahlung",at:new Date().toISOString()});
-    save();updateHeader();showWallet(`${money(amount)} durch simulierte Kartenzahlung gutgeschrieben. Es wurde kein echtes Geld abgebucht.`);
-  };
-  $("cancelTestCard").onclick=()=>showWallet();
-}
   function showWallet(flash=""){
     if(typeof flash!=="string")flash="";
     activate("portfolio");
@@ -384,7 +367,7 @@ function proposeBuilding(obj){
     </div>`).join("")||'<p class="note">Derzeit keine offenen Anfragen.</p>'}</div>`;
 }
   function approveRequest(key){
-  if(!game.adminPreview)return showAdmin("Nur der Demo-Admin kann Objekte übernehmen.");
+  if(!game.adminPreview)return showAdmin("Spielsteuerung ist nicht aktiv.");
   const c=ensureCity(),req=c.requests.find(r=>r.key===key);
   if(!req)return showAdmin("Vorschlag nicht gefunden.");
   if(c.drops.some(a=>a.requestKey===key))return showAdmin("Objekt ist bereits vorgemerkt.");
