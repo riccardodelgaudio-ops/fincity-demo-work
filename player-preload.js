@@ -11,8 +11,15 @@
   try{profiles=JSON.parse(localStorage.getItem(PKEY)||"[]")}catch(e){}
   if(!Array.isArray(profiles))profiles=[];
 
+  const params=new URLSearchParams(location.search);
+  const requested=params.get("player");
   let active=localStorage.getItem(AKEY);
-  if(!active){active="@Player1";localStorage.setItem(AKEY,active)}
+  if(requested){
+    const normalized="@"+String(requested).replace(/^@+/,"").trim();
+    if(PARTY.includes(normalized))active=normalized;
+  }
+  if(!active)active="@Player1";
+  localStorage.setItem(AKEY,active);
 
   PARTY.forEach(handle=>{
     if(!profiles.some(p=>p.handle===handle))profiles.push({handle,createdAt:new Date().toISOString(),party:true});
