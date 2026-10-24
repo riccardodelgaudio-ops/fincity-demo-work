@@ -4,6 +4,7 @@
   const KEY="fincity-auction-game-v1";
   const USER=localStorage.getItem("fincity-active-player")||"@Player1";
   const STEP=10;
+  const AUCTION_DURATION_MS=24*60*60*1000; // Demo: 24 Stunden pro Los.
   const $=id=>document.getElementById(id);
   const money=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(n||0);
   const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -37,6 +38,8 @@
       lng:a.lng,lat:a.lat,units:int(a.slots)||null,
       sizeM2:int(a.sizeM2)||null,startingBid:startPrice(int(a.slots)||4),
       status:i===0?"live":"planned",startedWeek:i===0?weekKey():null,
+      startedAt:i===0?new Date().toISOString():null,
+      endsAt:i===0?new Date(Date.now()+AUCTION_DURATION_MS).toISOString():null,
       bids:[],seller:null,propertyId:null,date:a.date||"Termin folgt"};
   }
   function ensureCity(){
@@ -54,7 +57,52 @@
     c.requests||=[];
     c.drops||=[];
     c.buildings||=[];
+    // Alte lokale Demo-Auktionen einmalig um einen festen Endzeitpunkt ergänzen.
+    let migrated=false;
+    for(const a of c.drops){
+      if(a.status!=="live"||Number.isFinite(Date.parse(a.endsAt||"")))continue;
+      const parsed=Date.parse(a.startedAt||"");
+      const start=Number.isFinite(parsed)?parsed:Date.now();
+      a.startedAt=new Date(start).toISOString();
+      a.endsAt=new Date(start+AUCTION_DURATION_MS).toISOString();
+      migrated=true;
+    }
+    if(migrated)save();
     return c;
+  }
+  function countdownInfo(a,now=Date.now()){
+    const deadline=Date.parse(a?.endsAt||"");
+    if(!Number.isFinite(deadline))return null;
+    const left=Math.max(0,deadline-now),seconds=Math.ceil(left/1000);
+    const hh=Math.floor(seconds/3600),mm=Math.floor((seconds%3600)/60),ss=seconds%60;
+    const pad=n=>String(n).padStart(2,"0");
+    return {left,end:deadline,text:pad(hh)+":"+pad(mm)+":"+pad(ss)};
+  }
+  function countdownMarkup(a,variant=""){
+    if(a.status!=="live")return "";
+    const t=countdownInfo(a);if(!t)return "";
+    const date=new Intl.DateTimeFormat("de-CH",{timeZone:"Europe/Zurich",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(t.end));
+    const state=t.left<=0?" fc-expired":t.left<=3600000?" fc-urgent":"";
+    const variantClass=variant==="detail"?" fc-auction-timer-detail":variant==="mini"?" fc-auction-timer-mini":"";
+    return `<div class="fc-auction-timer${variantClass}${state}" data-fc-countdown data-fc-ends="${esc(a.endsAt)}" aria-live="off"><div class="fc-auction-timer-main"><span class="fc-timer-label">${t.left<=0?"⏱ AUKTION ABGELAUFEN":"⏱ AUKTION ENDET IN"}</span><strong class="fc-timer-count">${t.text}</strong></div><span class="fc-timer-end">ENDE<br>${date} Uhr</span></div>`;
+  }
+  function updateCountdowns(){
+    const panelEl=$("panel");if(!panelEl)return;
+    panelEl.querySelectorAll("[data-fc-countdown]").forEach(node=>{
+      const t=countdownInfo({endsAt:node.dataset.fcEnds});if(!t)return;
+      const ended=t.left<=0;
+      const label=node.querySelector(".fc-timer-label"),value=node.querySelector(".fc-timer-count");
+      if(label)label.textContent=ended?"⏱ AUKTION ABGELAUFEN":"⏱ AUKTION ENDET IN";
+      if(value)value.textContent=t.text;
+      node.classList.toggle("fc-urgent",!ended&&t.left<=3600000);
+      node.classList.toggle("fc-expired",ended);
+      const liveStatus=node.closest("[data-auction]")?.querySelector("[data-fc-live-status]");
+      if(liveStatus&&ended)liveStatus.textContent="⏱ ABGELAUFEN";
+      if(ended){
+        const detailStatus=$("fcAuctionStatus");if(detailStatus)detailStatus.textContent="Auktion abgelaufen · Auswertung folgt";
+        const submit=$("placeBid");if(submit){submit.disabled=true;submit.textContent="AUKTION ABGELAUFEN";}
+      }
+    });
   }
   function quota(c){return Math.min(10,2+Math.floor(Math.max(0,int(c.userCount))/250))}
   function used(c){return c.drops.filter(a=>a.startedWeek===weekKey()).length}
@@ -132,7 +180,7 @@
       <div class="grid2"><div class="metric"><span>PLATTFORMWEIT VERKAUFT</span><strong>${t.count}</strong></div><div class="metric"><span>DIGITALER PLATTFORMWERT</span><strong>${money(t.value)}</strong></div></div>
       <div class="card"><strong>City Drops</strong><div class="note">Wenige neue Gebäude pro Woche. Mehr Spieler = mehr mögliche Drops.</div></div>
       <div class="card"><strong>Nächste Auktionen · ${esc(city().name)}</strong>
-        ${c.drops.filter(a=>a.status==="live"||a.status==="planned").slice(0,4).map(a=>`<div class="owned-row fc-click" data-auction="${esc(a.id)}"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${a.status==="live"?"🔴 LIVE":"⏳ GEPLANT"} · ab ${money(a.startingBid)}</div></span><b>→</b></div>`).join("")||'<div class="note">Zurzeit keine weiteren Auktionsobjekte.</div>'}
+        ${c.drops.filter(a=>a.status==="live"||a.status==="planned").slice(0,4).map(a=>`<div class="owned-row fc-click fc-city-drop" data-auction="${esc(a.id)}"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${a.status==="live"?(countdownInfo(a)?.left===0?"⏱ ABGELAUFEN":"🔴 LIVE"):"⏳ GEPLANT"} · ab ${money(a.startingBid)}</div></span><b>→</b>${countdownMarkup(a,"mini")}</div>`).join("")||'<div class="note">Zurzeit keine weiteren Auktionsobjekte.</div>'}
       </div>
       <button class="action" id="cityAuctions">ALLE AUKTIONEN ANSEHEN</button>
       ${disclaimer()}`);
@@ -142,11 +190,13 @@
   }
   function dropList(c){
     return c.drops.filter(a=>a.status!=="cancelled").map(a=>{
-      const top=highest(a),label=a.status==="live"?"🔴 LIVE":a.status==="planned"?"⏳ GEPLANT":a.status==="sold"?"✓ VERKAUFT":"BEENDET";
-      return `<div class="active-row fc-click" data-auction="${esc(a.id)}"><div><strong>${esc(a.name)}</strong>
+      const top=highest(a),ended=a.status==="live"&&countdownInfo(a)?.left===0;
+      const label=ended?"⏱ ABGELAUFEN":a.status==="live"?"🔴 LIVE":a.status==="planned"?"⏳ GEPLANT":a.status==="sold"?"✓ VERKAUFT":"BEENDET";
+      return `<div class="active-row fc-auction-row fc-click" data-auction="${esc(a.id)}"><div class="fc-auction-row-info"><strong>${esc(a.name)}</strong>
         <div class="rankmeta">${esc(a.address)}</div>
-        <div class="rankmeta">${a.units??"–"} Wohneinheiten (nur Grösse) · ${a.sizeM2?`${a.sizeM2} m²`:"m² unbekannt"} · ${label}</div></div>
-        <div class="fc-pricecol"><div class="eyebrow">${top?"HÖCHSTGEBOT":"STARTPREIS"}</div><div class="price">${money(top?.amount||a.startingBid)}</div></div></div>`;
+        <div class="rankmeta">${a.units??"–"} Wohneinheiten (nur Grösse) · ${a.sizeM2?`${a.sizeM2} m²`:"m² unbekannt"} · <span data-fc-live-status>${label}</span></div></div>
+        <div class="fc-pricecol"><div class="eyebrow">${top?"HÖCHSTGEBOT":"STARTPREIS"}</div><div class="price">${money(top?.amount||a.startingBid)}</div></div>
+        ${countdownMarkup(a)}</div>`;
     }).join("");
   }
   function showAuctions(){
@@ -163,13 +213,14 @@
     const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
     if(!a)return showAuctions();
     activate("auctions");
-    const top=highest(a),mine=top?.user===USER,live=a.status==="live";
+    const top=highest(a),mine=top?.user===USER,ended=a.status==="live"&&countdownInfo(a)?.left===0,live=a.status==="live"&&!ended;
     const min=bidFloor(a);
     openPanel(`<div class="eyebrow">CITY DROP · ${esc(city().name).toUpperCase()} · ${esc(a.status).toUpperCase()}</div><h2>${esc(a.name)}</h2>
       ${flash?`<div class="fc-flash" role="status">${esc(flash)}</div>`:""}
+      ${countdownMarkup(a,"detail")}
       <div class="card"><div class="previewrow"><span>Standort</span><b>${esc(a.address)}</b></div>
         <div class="previewrow"><span>Startpreis</span><b>${money(a.startingBid)}</b></div>
-        <div class="previewrow"><span>Status</span><b>${a.status==="live"?"Auktion läuft":a.status==="planned"?"Noch nicht freigegeben":a.status==="sold"?"Verkauft":"Beendet"}</b></div>
+        <div class="previewrow"><span>Status</span><b id="fcAuctionStatus">${ended?"Auktion abgelaufen · Auswertung folgt":a.status==="live"?"Auktion läuft":a.status==="planned"?"Noch nicht freigegeben":a.status==="sold"?"Verkauft":"Beendet"}</b></div>
         ${a.seller?`<div class="previewrow"><span>Verkäufer</span><b>${esc(a.seller)}</b></div>`:""}
       </div>
       <div class="grid2"><div class="metric"><span>AKTUELLER PREIS</span><strong>${money(top?.amount||a.startingBid)}</strong></div>
@@ -191,6 +242,7 @@
   function placeBid(id,amount){
     const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
     if(!a||a.status!=="live")return showAuctions();
+    if(countdownInfo(a)?.left===0)return showAuction(id,"Diese Auktion ist bereits abgelaufen.");
     if(a.seller===USER)return showAuction(id,"Du kannst nicht auf dein eigenes Objekt bieten.");
     if(!Number.isSafeInteger(amount)||amount<bidFloor(a)||amount%STEP!==0)return showAuction(id,`Mindestgebot ${money(bidFloor(a))}, in Schritten von CHF ${STEP}.`);
     const previous=highest(a)?.user===USER?highest(a).amount:0;
@@ -429,6 +481,7 @@ function proposeBuilding(obj){
     if(!a||a.status!=="planned")return showAdmin("Dieses Los kann nicht gestartet werden.");
     if(available(c)<=0)return showAdmin("Wochenlimit erreicht. Starte keine weiteren Auktionen in dieser Stadt.");
     a.status="live";a.startedWeek=weekKey();a.date="Jetzt live · als Spielrunde gestartet";
+    a.startedAt=new Date().toISOString();a.endsAt=new Date(Date.now()+AUCTION_DURATION_MS).toISOString();
     game.notifications.unshift({title:`Neue Auktion: ${a.name}`,city:city().name,at:new Date().toISOString(),read:false});
     if(game.notifications.length>50)game.notifications.length=50;
     save();syncMap();showAdmin(`${a.name} ist jetzt live.`);
@@ -466,5 +519,7 @@ function proposeBuilding(obj){
   };
   initNavigation();
   ensureCity();syncMap();
+  window.setInterval(updateCountdowns,1000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)updateCountdowns()});
   save();
 })();
