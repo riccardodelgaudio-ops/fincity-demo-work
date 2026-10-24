@@ -311,13 +311,27 @@
     const newSales=c.sales.filter(s=>new Date(s.at).getFullYear()===year);
     const top=[...historic,...newSales].sort((a,b)=>b.amount-a.amount).slice(0,10);
     const resales=newSales.filter(s=>s.resale&&s.previousPrice>0).sort((a,b)=>(b.resaleGain/b.previousPrice)-(a.resaleGain/a.previousPrice));
-    openPanel(`<div class="eyebrow">CITY CHALLENGES · ${esc(city().name)}</div><h2>Jahres-Bestenliste ${year}</h2>
-      <div class="card"><strong>🏆 Höchster Auktionszuschlag</strong>
-        ${top.map((r,i)=>`<div class="rankrow"><b>#${i+1}</b><span><strong>${esc(r.buyer)}</strong><div class="rankmeta">${esc(r.name)}</div></span><span class="rankret">${money(r.amount)}</span></div>`).join("")||'<p class="note">Noch keine Verkäufe in diesem Jahr.</p>'}</div>
-      <div class="card"><strong>🔁 Bester Wiederverkauf · ${year}</strong>
- ${resales.map((r,i)=>`<div class="rankrow"><b>#${i+1}</b><span><strong>${esc(r.seller||"–")}</strong><div class="rankmeta">${esc(r.name)} · ${money(r.previousPrice)} → ${money(r.amount)}</div></span><span class="rankret">${r.resaleGain>=0?"+":""}${Math.round(r.resaleGain/r.previousPrice*100)} %</span></div>`).join("")||'<p class="note">Noch keine Wiederverkäufe in diesem Jahr.</p>'}
-<div class="note">Für die spätere Auszeichnung zählen nur faire Verkäufe zwischen unabhängigen Spielern mit Mindesthaltedauer. Diese Regeln sind noch ein Vorschlag.</div></div>
-      <div class="card"><strong>Preisideen für Stadt-Champions</strong><div class="note">Die Bestenliste belohnt Gameplay: Rekordzuschlag, gute Verkäufe und Sammlungserfolge. Es zählen digitale Spiel-Auktionen und Sammlererfolge.</div></div>${disclaimer()}`);
+    const rankIcon=i=>i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1);
+    openPanel(`<div class="eyebrow">CITY CHALLENGES · ${esc(city().name).toUpperCase()}</div>
+      <div class="lb-title"><div><h2>Bestenliste ${year}</h2><p>Die stärksten FinCity-Verkäufe dieser Stadt.</p></div><span>🏆</span></div>
+      <section class="lb-card">
+        <div class="lb-section-head"><span>HÖCHSTER AUKTIONSZUSCHLAG</span><b>${top.length} Plätze</b></div>
+        <div class="lb-list">${top.map((r,i)=>`<div class="lb-row ${i<3?"podium":""}">
+          <div class="lb-rank">${rankIcon(i)}</div>
+          <div class="lb-info"><strong>${esc(r.buyer)}</strong><small>${esc(r.name)}</small></div>
+          <div class="lb-value">${money(r.amount)}</div>
+        </div>`).join("")||'<p class="note">Noch keine Verkäufe in diesem Jahr.</p>'}</div>
+      </section>
+      <section class="lb-card">
+        <div class="lb-section-head"><span>BESTER WIEDERVERKAUF</span><b>${year}</b></div>
+        <div class="lb-list">${resales.slice(0,5).map((r,i)=>`<div class="lb-row">
+          <div class="lb-rank">${rankIcon(i)}</div>
+          <div class="lb-info"><strong>${esc(r.seller||"–")}</strong><small>${esc(r.name)} · ${money(r.previousPrice)} → ${money(r.amount)}</small></div>
+          <div class="lb-value">${r.resaleGain>=0?"+":""}${Math.round(r.resaleGain/r.previousPrice*100)}%</div>
+        </div>`).join("")||'<p class="note">Noch keine Wiederverkäufe.</p>'}</div>
+      </section>
+      <p class="lb-footnote">Nur Spiel-Auktionen in ${esc(city().name)} · keine realen Immobilienwerte.</p>
+      ${disclaimer()}`);
   }
   function showTrophy(id){
     const t=trophies.find(t=>String(t.id)===String(id));
