@@ -1,7 +1,7 @@
 // FinCity Citybook: global/city feed, likes, comments, images and direct chats.
 (function(){
 "use strict";
-var KEY="fincity-citybook-v1", USER="@MyFinCity", tab="global", imageData=null;
+var KEY="fincity-citybook-v1", USER=localStorage.getItem("fincity-active-player")||"@Player1", tab="global", imageData=null;
 var $=function(id){return document.getElementById(id);};
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
 var money=function(n){return new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(Number(n)||0);};
@@ -78,11 +78,13 @@ function chatList(){
 }
 function activate(){document.querySelectorAll(".nav-btn").forEach(function(b){b.classList.toggle("active",b.dataset.view==="citybook");});}
 function show(name){
+ USER=localStorage.getItem("fincity-active-player")||USER;
  if(name)tab=name;activate();var body=tab==="chats"?chatList():composer()+'<div class="cb-feed">'+(posts().map(postCard).join("")||'<div class="card"><div class="note">Noch keine Beiträge.</div></div>')+'</div>';
  openPanel('<div class="eyebrow">CITYBOOK · FINCITY COMMUNITY</div><div class="cb-title"><div><h2>Citybook</h2><p>Menschen, Käufe und Geschichten aus FinCity.</p></div><span>● LIVE DEMO</span></div>'+tabsHtml()+body);bind();
 }
 window.showCitybook=show;
 function showChat(u){
+ USER=localStorage.getItem("fincity-active-player")||USER;
  tab="chats";activate();var ms=thread(u),rows=ms.map(function(m){return '<div class="cb-bubble '+(m.from===USER?"mine":"")+'"><p>'+esc(m.text)+'</p><small>'+ago(m.createdAt)+'</small></div>';}).join("");
  openPanel('<div class="eyebrow">CITYBOOK · DIREKT-CHAT</div><div class="cb-chat-head"><button id="cbBack">‹</button>'+avatar(u)+'<div><h2>'+esc(u)+'</h2><small>FinCity User · Direktnachricht</small></div></div><div class="cb-thread" id="cbThread">'+rows+'</div><form class="cb-chat-form" id="cbChatForm"><input id="cbChatText" maxlength="500" placeholder="Nachricht an '+esc(u)+' …"><button>SENDEN</button></form><p class="note">Citybook-Chat · Demo lokal auf diesem Gerät.</p>');
  $("cbBack").onclick=function(){show("chats");};$("cbChatForm").onsubmit=function(e){e.preventDefault();var input=$("cbChatText"),txt=input.value.trim();if(!txt)return;thread(u).push({id:uid(),from:USER,to:u,text:txt,createdAt:new Date().toISOString()});save();showChat(u);};
