@@ -494,12 +494,11 @@ function proposeBuilding(obj){
     });
     const top=$("portfolioTop");if(top)top.onclick=()=>showPortfolio();
     document.querySelectorAll(".filter").forEach(btn=>btn.onclick=()=>{
-      const f=btn.dataset.filter;
-      if(f==="owned"){showPortfolio();applyFilter("owned")}
-      else if(f==="active"){showActive();applyFilter("active")}
-      else if(f==="auction"){showAuctions();applyFilter("auction")}
-      else if(f==="trophy"){showTrophies();applyFilter("trophy")}
-      else{showCity();applyFilter("all")}
+      const f=btn.dataset.filter||"all";
+      applyFilter(f);
+      // Top buttons are map filters only. They never open rankings/lists/panels.
+      try{closePanel()}catch(e){panel?.classList.remove("show")}
+      document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
     });
     const mapmode=$("investMapBtn");if(mapmode){mapmode.textContent="STADTKARTE";mapmode.title="Digitale Immobilien auf der echten Karte"}
   }
