@@ -130,7 +130,7 @@
     openPanel(`<div class="eyebrow">FINCITY · DIGITALE STADTWELT</div><h2>Entdecke ${esc(city().name)}</h2>
       ${citySelect()}<div class="fc-hero"><span>WÖCHENTLICHE CITY DROPS</span><strong>${quota(c)} Auktionen</strong><small>${used(c)} von ${quota(c)} Freigaben gestartet · ${c.userCount} aktive Demo-Spieler</small></div>
       <div class="grid2"><div class="metric"><span>PLATTFORMWEIT VERKAUFT</span><strong>${t.count}</strong></div><div class="metric"><span>DIGITALER PLATTFORMWERT</span><strong>${money(t.value)}</strong></div></div>
-      <div class="card"><strong>Knappheit nach Spielerzahl</strong><div class="note">Je Stadt werden zunächst 2 Spiel-Immobilien pro Woche freigegeben. Pro 250 aktiven Spielern kommt 1 weiterer City Drop dazu, maximal 10 pro Woche. Neue Auktionen startet ausschliesslich die Administration.</div></div>
+      <div class="card"><strong>Knappheit nach Spielerzahl</strong><div class="note">Je Stadt werden zunächst 2 Spiel-Immobilien pro Woche freigegeben. Pro 250 aktiven Spielern kommt 1 weiterer City Drop dazu, maximal 10 pro Woche. Neue City Drops werden über «Spielrunde» gestartet und können dort direkt ausgewertet werden.</div></div>
       <div class="card"><strong>Nächste Auktionen · ${esc(city().name)}</strong>
         ${c.drops.filter(a=>a.status==="live"||a.status==="planned").slice(0,4).map(a=>`<div class="owned-row fc-click" data-auction="${esc(a.id)}"><span><strong>${esc(a.name)}</strong><div class="rankmeta">${a.status==="live"?"🔴 LIVE":"⏳ GEPLANT"} · ab ${money(a.startingBid)}</div></span><b>→</b></div>`).join("")||'<div class="note">Zurzeit keine weiteren Auktionsobjekte.</div>'}
       </div>
@@ -184,7 +184,7 @@
         <input class="fc-input" id="bidAmount" type="number" min="${min}" step="10" value="${min}">
         <button class="action" id="placeBid">VERBINDLICHES DEMO-GEBOT PLATZIEREN</button>`}</div>`:""}
       ${a.status==="sold"?`<div class="card"><strong>Verkauft an ${esc(top?.user||"–")}</strong><div class="note">Digitales Objekt · Zuschlag ${money(top?.amount||a.startingBid)}</div></div>`:""}
-      ${game.adminPreview&&live?'<button class="action secondary" id="closeAuction">AUKTION ALS DEMO-ADMIN BEENDEN</button>':""}
+      ${game.adminPreview&&live?'<button class="action secondary" id="closeAuction">SPIELRUNDE JETZT AUSWERTEN</button>':""}
       <button class="action secondary" id="mapThisAuction">AUF KARTE ANSEHEN</button>
       ${disclaimer()}`);
     const submit=$("placeBid");if(submit)submit.onclick=()=>placeBid(a.id,Number($("bidAmount").value));
@@ -251,7 +251,7 @@
         <div class="previewrow"><span>Digitaler Anzeigewert</span><b>${money(b.lastAuctionPrice)}</b></div>
         <div class="note">Anzeigewert = letzter Auktionspreis, keine Schätzung eines aktuellen Marktwerts der realen Immobilie.</div></div>
       ${mine&&!pending?`<div class="card"><strong>Dein Gebäude weiterverkaufen</strong>
-          <p class="note">Du kannst es zur erneuten digitalen Auktion vorschlagen. Ein Admin muss den City Drop freigeben.</p>
+          <p class="note">Du kannst es zur erneuten digitalen Auktion vorschlagen. Danach kann der City Drop unter «Spielrunde» gestartet werden.</p>
           <label class="eyebrow" for="resalePrice">STARTPREIS (CHF)</label>
           <input id="resalePrice" class="fc-input" type="number" min="10" step="10" value="${Math.max(10,Math.ceil(b.lastAuctionPrice/10)*10)}">
           <button class="action" id="requestResale">ZUR AUKTION VORMERKEN</button></div>`:""}
@@ -269,14 +269,14 @@
     const auctionId=`resale-${Date.now()}-${b.id}`;
     c.drops.push({id:auctionId,name:b.name,address:b.address,lng:b.lng,lat:b.lat,
       units:b.units,startingBid:price,status:"planned",startedWeek:null,bids:[],
-      seller:USER,propertyId:b.id,date:"Nach Admin-Freigabe"});
-    save();syncMap();showBuilding(id,"Wiederverkauf vorgemerkt. Ein Demo-Admin kann die Auktion innerhalb des Wochenlimits starten.");
+      seller:USER,propertyId:b.id,date:"Bereit für Spielrunde"});
+    save();syncMap();showBuilding(id,"Wiederverkauf vorgemerkt. Starte die nächste Auktion unter «Spielrunde».");
   }
   function showPortfolio(){
     activate("portfolio");const c=ensureCity(),owned=c.buildings.filter(b=>b.holder===USER);
     const worth=owned.reduce((s,b)=>s+b.lastAuctionPrice,0);
     openPanel(`<div class="eyebrow">MEIN SPIELKONTO</div><h2>${USER}</h2>
-      <div class="grid2"><div class="metric"><span>DEMO-GUTHABEN</span><strong>${money(balance())}</strong></div>
+      <div class="grid2"><div class="metric"><span>SPIELGELD</span><strong>${money(balance())}</strong></div>
       <div class="metric"><span>FÜR GEBOTE VERFÜGBAR</span><strong>${money(freeBalance())}</strong></div></div>
       <div class="grid2" style="margin-top:9px"><div class="metric"><span>MEINE IMMOBILIEN · ${esc(city().name)}</span><strong>${owned.length}</strong></div>
       <div class="metric"><span>KAUFPREISSUMME</span><strong>${money(worth)}</strong></div></div>
@@ -307,17 +307,12 @@ function showCardCheckout(amount,flash=""){
 }
   function showWallet(flash=""){
     activate("portfolio");
-    openPanel(`<div class="eyebrow">SPIELKONTO · DEMO-ZAHLUNGEN</div><h2>Guthaben aufladen</h2>
+    openPanel(`<div class="eyebrow">SPIELKONTO · SPIELGELD</div><h2>Guthaben aufladen</h2>
       ${flash?`<div class="fc-flash">${esc(flash)}</div>`:""}
-      <div class="fc-hero"><span>AKTUELLES DEMO-GUTHABEN</span><strong>${money(balance())}</strong><small>Davon verfügbar: ${money(freeBalance())} · ${money(reserved())} reserviert</small></div>
-      <div class="card"><strong>Testguthaben hinzufügen</strong><div class="fc-topup-grid">
+      <div class="fc-hero"><span>AKTUELLES SPIELGELD</span><strong>${money(balance())}</strong><small>Davon verfügbar: ${money(freeBalance())} · ${money(reserved())} reserviert</small></div>
+      <div class="card"><strong>Spielgeld nachladen</strong><div class="fc-topup-grid">
         <button class="action secondary" data-topup="100">+ CHF 100</button>
-        <button class="action secondary" data-topup="500">+ CHF 500</button>
-        <button class="action secondary" data-topup="1000">+ CHF 1'000</button>
       </div></div>
-      <div class="card"><strong>💳 Kreditkarte</strong><div class="note">FinCity verwendet in dieser Version ausschliesslich Spielgeld. Es werden keine Kreditkarten oder echten Zahlungen verwendet.</div>
-      <label class="eyebrow" for="testCardAmount">TESTBETRAG IN CHF</label><input class="fc-input" id="testCardAmount" type="number" min="10" max="5000" step="10" value="100">
-      <button class="action secondary" id="startTestCard">KREDITKARTE SIMULIEREN →</button></div>
       <button class="action secondary" id="returnAccount">ZURÜCK ZU MEINEM KONTO</button>${disclaimer()}`);
     panel.querySelectorAll("[data-topup]").forEach(b=>b.onclick=()=>{
       const amount=int(b.dataset.topup);
@@ -325,7 +320,6 @@ function showCardCheckout(amount,flash=""){
       game.transactions.push({type:"demo-credit",amount,title:"Testguthaben",at:new Date().toISOString()});
       save();updateHeader();showWallet(`${money(amount)} Testguthaben gutgeschrieben. Keine echte Zahlung.`);
     });
-    const card=$("startTestCard");if(card)card.onclick=()=>showCardCheckout(Number($("testCardAmount").value));
     $("returnAccount").onclick=showPortfolio;
   }
   function showRanking(){
@@ -366,7 +360,7 @@ function showCardCheckout(amount,flash=""){
   activate("alerts");
   game.notifications.forEach(n=>n.read=true);save();updateHeader();
   openPanel(`<div class="eyebrow">CITY DROPS · SPIEL-MELDUNGEN</div><h2>🔔 Neue Auktionen</h2>
-    <div class="card"><strong>Aktivitäten</strong><div class="note">Neue digitale Auktionen erscheinen nach Admin-Start hier. Diese Demo speichert Meldungen nur lokal auf deinem Gerät. Echte Push-Nachrichten an andere Spieler benötigen ein Backend und eine aktive Zustimmung.</div></div>
+    <div class="card"><strong>Aktivitäten</strong><div class="note">Neue digitale Auktionen erscheinen nach dem Start einer Spielrunde hier. Diese Demo speichert Meldungen nur lokal auf deinem Gerät. Echte Push-Nachrichten an andere Spieler benötigen ein Backend und eine aktive Zustimmung.</div></div>
     <div class="card">${game.notifications.map(n=>`<div class="owned-row"><span><strong>${esc(n.title)}</strong><div class="rankmeta">${esc(n.city)} · ${new Date(n.at).toLocaleString("de-CH")}</div></span><b>🔔</b></div>`).join("")||'<p class="note">Noch keine neuen City-Drop-Meldungen.</p>'}</div>
     <button class="action secondary" id="alertAuctions">AUKTIONEN ANSEHEN</button>${disclaimer()}`);
   $("alertAuctions").onclick=showAuctions;
@@ -399,7 +393,7 @@ function proposeBuilding(obj){
   const id=`proposal-${req.key}`;
   c.drops.push({id,requestKey:key,name:req.name,address:req.address,lng:req.lng,lat:req.lat,
     units:req.units,sizeM2:null,startingBid:startPrice(req.units||4),status:"planned",
-    startedWeek:null,bids:[],seller:null,propertyId:null,date:"Nach Admin-Freigabe",
+    startedWeek:null,bids:[],seller:null,propertyId:null,date:"Bereit für Spielrunde",
     verified:req.official});
   c.requests=c.requests.filter(r=>r.key!==key);
   save();syncMap();showAdmin("Standort als digitaler City Drop vorgemerkt. Vor echter Freigabe Adresse und Gebäudedaten kontrollieren.");
@@ -438,7 +432,7 @@ function proposeBuilding(obj){
     const c=ensureCity(),a=c.drops.find(x=>String(x.id)===String(id));
     if(!a||a.status!=="planned")return showAdmin("Dieses Los kann nicht gestartet werden.");
     if(available(c)<=0)return showAdmin("Wochenlimit erreicht. Starte keine weiteren Auktionen in dieser Stadt.");
-    a.status="live";a.startedWeek=weekKey();a.date="Jetzt live · vom Admin freigegeben";
+    a.status="live";a.startedWeek=weekKey();a.date="Jetzt live · als Spielrunde gestartet";
     game.notifications.unshift({title:`Neue Auktion: ${a.name}`,city:city().name,at:new Date().toISOString(),read:false});
     if(game.notifications.length>50)game.notifications.length=50;
     save();syncMap();showAdmin(`${a.name} wurde als Demo-Auktion gestartet. Die neue In-App-Meldung steht unter «Meldungen».`);
