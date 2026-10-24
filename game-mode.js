@@ -2,7 +2,7 @@
   "use strict";
   // FINCITY is a DIGITAL COLLECTIBLES GAME. Map positions do not convey title to real property.
   const KEY="fincity-auction-game-v1";
-  const USER="@MyFinCity";
+  const USER=localStorage.getItem("fincity-active-player")||"@Player1";
   const STEP=10;
   const $=id=>document.getElementById(id);
   const money=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(n||0);
@@ -10,8 +10,10 @@
   const int=n=>Number.isFinite(Number(n))?Math.max(0,Math.floor(Number(n))):0;
   const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){return null}};
   let game=load();
-  if(!game||game.version!==1)game={version:1,wallets:{[USER]:1000},transactions:[],cities:{},adminPreview:false};
-  if(!game.wallets)game.wallets={[USER]:1000};
+  if(!game||game.version!==1)game={version:1,wallets:{[USER]:100},transactions:[],cities:{},adminPreview:true};
+  if(!game.wallets)game.wallets={[USER]:100};
+  if(game.wallets[USER]===undefined)game.wallets[USER]=100;
+  game.adminPreview=true;
   if(!game.cities)game.cities={};
   if(!Array.isArray(game.notifications))game.notifications=[];
   if(!Array.isArray(game.transactions))game.transactions=[];
@@ -103,7 +105,7 @@
     const little=document.querySelector(".brand small");
     if(little)little.textContent=`${city().name.toUpperCase()} · DIGITALE IMMOBILIEN · SPIEL`;
     const top=$("portfolioTop");
-    if(top)top.textContent=`MEIN KONTO · ${money(freeBalance())}`;
+    if(top)top.textContent=`${USER} · ${money(freeBalance())}`;
     const alerts=document.querySelector(".nav-btn[data-view=alerts] b");
     if(alerts)alerts.textContent=`MELDUNGEN${game.notifications.filter(n=>!n.read).length?` (${game.notifications.filter(n=>!n.read).length})`:""}`;
   }
@@ -152,7 +154,7 @@
     openPanel(`<div class="eyebrow">CITY DROPS · ${esc(city().name).toUpperCase()}</div><h2>Immobilien-Auktionen</h2>
       <div class="fc-hero"><span>KNAPPE FREIGABEN</span><strong>${used(c)} / ${quota(c)} diese Woche</strong><small>${available(c)} weitere Starts durch Admin möglich</small></div>
       <p class="note">Jedes Los ist ein <strong>ganzes digitales Gebäude</strong> – als reines Spielobjekt.</p>
-      <div class="active-list">${dropList(c)}</div><button class="action secondary" id="auctionAdmin">ADMINISTRATION (DEMO)</button>
+      <div class="active-list">${dropList(c)}</div><button class="action secondary" id="auctionAdmin">SPIELRUNDE STEUERN</button>
       ${disclaimer()}`);
     panel.querySelectorAll("[data-auction]").forEach(el=>el.onclick=()=>showAuction(el.dataset.auction));
     $("auctionAdmin").onclick=showAdmin;
@@ -205,8 +207,8 @@
     if(!a||a.status!=="live")return showAdmin();
     const top=highest(a);
     if(!top){a.status="expired";save();syncMap();showAuctions();return}
-    if(balance(top.user)<top.amount && top.user===USER)return showAuction(id,"Fehler: Guthaben für das Höchstgebot fehlt.");
-    if(top.user===USER)game.wallets[USER]-=top.amount;
+    if(game.wallets[top.user]!==undefined&&balance(top.user)<top.amount)return showAuction(id,"Fehler: Guthaben für das Höchstgebot fehlt.");
+    if(game.wallets[top.user]!==undefined)game.wallets[top.user]-=top.amount;
     if(a.seller)game.wallets[a.seller]=balance(a.seller)+top.amount;
     const existing=a.propertyId?c.buildings.find(b=>String(b.id)===String(a.propertyId)):null;
     const previousPrice=existing?int(existing.lastAuctionPrice):0;
@@ -280,7 +282,7 @@
       <div class="metric"><span>KAUFPREISSUMME</span><strong>${money(worth)}</strong></div></div>
       <div class="card"><strong>Meine Häuser in ${esc(city().name)}</strong>
        ${owned.map(b=>`<div class="owned-row fc-click" data-building="${esc(b.id)}"><span><strong>${esc(b.name)}</strong><div class="rankmeta">Letzter Auktionspreis ${money(b.lastAuctionPrice)}</div></span><b>→</b></div>`).join("")||'<div class="note">In dieser Stadt besitzt du noch keine digitalen Gebäude.</div>'}</div>
-      <button class="action" id="topupWallet">GUTHABEN AUFLADEN</button>
+      <button class="action" id="topupWallet">+ CHF 100 SPIELGELD</button>
       <div class="card"><strong>Persönliches Konto</strong><div class="note">Reservierte Gebote: ${money(reserved())}. Guthaben und Auktionen dieser Version werden ausschliesslich lokal im Browser simuliert.</div></div>
       ${disclaimer()}`);
     panel.querySelectorAll("[data-building]").forEach(el=>el.onclick=()=>showBuilding(el.dataset.building));
@@ -313,7 +315,7 @@ function showCardCheckout(amount,flash=""){
         <button class="action secondary" data-topup="500">+ CHF 500</button>
         <button class="action secondary" data-topup="1000">+ CHF 1'000</button>
       </div></div>
-      <div class="card"><strong>💳 Kreditkarte</strong><div class="note">Eine echte Kreditkartenzahlung ist in dieser Browser-Demo noch nicht angeschlossen. Keine Kartendaten eingeben – es findet keine Abbuchung statt.</div>
+      <div class="card"><strong>💳 Kreditkarte</strong><div class="note">FinCity verwendet in dieser Version ausschliesslich Spielgeld. Es werden keine Kreditkarten oder echten Zahlungen verwendet.</div>
       <label class="eyebrow" for="testCardAmount">TESTBETRAG IN CHF</label><input class="fc-input" id="testCardAmount" type="number" min="10" max="5000" step="10" value="100">
       <button class="action secondary" id="startTestCard">KREDITKARTE SIMULIEREN →</button></div>
       <button class="action secondary" id="returnAccount">ZURÜCK ZU MEINEM KONTO</button>${disclaimer()}`);
@@ -404,10 +406,10 @@ function proposeBuilding(obj){
 }
   function showAdmin(flash=""){
     activate("admin");const c=ensureCity();
-    openPanel(`<div class="eyebrow">ADMINISTRATION · NUR SIMULATION</div><h2>City Drops verwalten</h2>
+    openPanel(`<div class="eyebrow">SPIELRUNDE · SPIELGELD</div><h2>Auktionen starten & abschliessen</h2>
       ${flash?`<div class="fc-flash">${esc(flash)}</div>`:""}
-      <div class="card"><strong>Demo-Administrator</strong><p class="note">Der Schalter dient nur zum Ausprobieren. Er ist keine echte Anmeldung und schützt keine Daten. Im Produkt müssen Rollen und Starts serverseitig geprüft werden.</p>
-      <button class="action ${game.adminPreview?"secondary":""}" id="toggleAdmin">${game.adminPreview?"DEMO-ADMIN-MODUS VERLASSEN":"DEMO-ADMIN-MODUS AKTIVIEREN"}</button></div>
+      <div class="card"><strong>Spielsteuerung</strong><p class="note">Hier steuerst du die aktuelle Spielrunde: geplante City Drops starten und laufende Auktionen abschliessen. Alles läuft nur mit Spielgeld.</p>
+      <button class="action ${game.adminPreview?"secondary":""}" id="toggleAdmin">${game.adminPreview?"SPIELSTEUERUNG AKTIV":"SPIELSTEUERUNG AKTIVIEREN"}</button></div>
       <div class="grid2"><div class="metric"><span>SPIELER · ${esc(city().name)}</span><strong>${c.userCount}</strong></div>
       <div class="metric"><span>WOCHENLIMIT</span><strong>${used(c)} / ${quota(c)}</strong></div></div>
       ${game.adminPreview?`<div class="card"><strong>Knappheit simulieren</strong><p class="note">2 Auktionen pro Woche + 1 pro 250 aktiven Spielern (maximal 10).</p>
