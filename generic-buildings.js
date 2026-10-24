@@ -58,13 +58,14 @@
   function photoFor(obj){const s=String(obj.egid||obj.address||obj.lon);let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))>>>0;return genericPhotos[h%genericPhotos.length]}
 
   function showGenericBuilding(obj){
+    window.__finCityLastGenericBuilding=obj;
     const cnt=requestCount(obj);const photo=photoFor(obj);
     openPanel(`
       <div class="eyebrow">FREIES KARTENGEBÄUDE · AUKTIONSANFRAGE</div>
       <h2>${obj.address||'Gebäude'}</h2>
       <div style="position:relative;height:180px;border-radius:14px;overflow:hidden;background:#111827">
         <img src="${photo}" alt="Symbolbild Gebäude" style="width:100%;height:100%;object-fit:cover;display:block">
-        <div style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.72);padding:5px 7px;border-radius:7px;font-size:7px;letter-spacing:.06em">SYMBOLBILD · NICHT OBJEKTGENAU</div>
+        <div style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.72);padding:5px 7px;border-radius:7px;font-size:7px;letter-spacing:.06em">VORSCHAUBILD · AMTLICHES LUFTBILD & STREET VIEW UNTEN</div>
       </div>
       <div class="card">
         <div class="previewrow"><span>Adresse</span><b>${obj.address}</b></div>
