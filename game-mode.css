@@ -111,3 +111,33 @@
   .lb-row{grid-template-columns:30px minmax(0,1fr) 70px}
   .lb-value{font-size:12px}
 }
+
+/* Grosse, sekündlich aktualisierte Auktions-Restzeit – auch auf kleinen Mobilgeräten. */
+.fc-auction-row{grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:11px}
+.fc-auction-row-info{min-width:0;overflow-wrap:anywhere}
+.fc-auction-row .fc-pricecol{min-width:85px;max-width:130px}
+.fc-auction-row .fc-pricecol .price{font-size:clamp(16px,3.5vw,20px)}
+.fc-auction-row>.fc-auction-timer{grid-column:1/-1}
+.fc-auction-timer{width:100%;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 14px;border:1px solid #8774ef;border-radius:13px;background:linear-gradient(110deg,#302357,#191e37);box-shadow:inset 0 0 0 1px rgba(191,171,255,.07)}
+.fc-auction-timer-main{min-width:0}
+.fc-timer-label{display:block;font-size:10px;line-height:1.3;font-weight:900;letter-spacing:.085em;color:#e5d8ff}
+.fc-timer-count{display:block;margin-top:4px;font-size:clamp(23px,6vw,33px);line-height:1.1;font-weight:950;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.025em;white-space:nowrap}
+.fc-timer-end{display:block;font-size:9px;line-height:1.6;text-align:right;font-weight:750;color:#d6d1ee;white-space:nowrap}
+.fc-auction-timer-detail{margin:12px 0 15px;padding:17px 16px;border-width:2px}
+.fc-auction-timer-detail .fc-timer-count{font-size:clamp(32px,7.5vw,46px)}
+.fc-auction-timer-mini{grid-column:1/-1;padding:10px 11px;margin-top:4px}
+.fc-auction-timer-mini .fc-timer-count{font-size:23px}
+.fc-city-drop{min-width:0}
+.fc-auction-timer.fc-urgent{border-color:#ff9a55;background:linear-gradient(110deg,#573120,#332233)}
+.fc-auction-timer.fc-urgent .fc-timer-label{color:#ffca9e}
+.fc-auction-timer.fc-expired{border-color:#6e778c;background:#202636}
+.fc-auction-timer.fc-expired .fc-timer-count{color:#e4e7ee}
+@media(max-width:420px){
+ .fc-auction-row{gap:7px}
+ .fc-auction-row .fc-pricecol{min-width:75px}
+ .fc-auction-timer{padding:10px 11px;gap:5px}
+ .fc-timer-count{font-size:clamp(21px,7vw,27px)}
+ .fc-timer-label{font-size:9px}
+ .fc-timer-end{font-size:8px}
+ .fc-auction-timer-detail .fc-timer-count{font-size:clamp(29px,9vw,39px)}
+}
