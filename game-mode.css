@@ -78,3 +78,36 @@
   .fc-disclaimer{font-size:9px;line-height:1.35;padding:9px}
   .note{line-height:1.35}
 }
+
+/* Mobile-first leaderboard */
+.lb-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+.lb-title h2{margin:2px 0 2px!important}
+.lb-title p{margin:0;color:#8e9ab3;font-size:9px;line-height:1.35}
+.lb-title>span{font-size:30px;line-height:1}
+.lb-card{margin-top:10px;padding:10px;border:1px solid #26334b;border-radius:15px;background:linear-gradient(180deg,#0d1422,#0a101b)}
+.lb-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 2px 8px}
+.lb-section-head span{font-size:8px;font-weight:900;letter-spacing:.08em;color:#f1f4fa}
+.lb-section-head b{font-size:7px;color:#8f9bb3;font-weight:800;white-space:nowrap}
+.lb-list{display:flex;flex-direction:column;gap:6px}
+.lb-row{display:grid;grid-template-columns:44px minmax(0,1fr) minmax(82px,auto);align-items:center;gap:8px;padding:9px 10px;border:1px solid #253149;border-radius:12px;background:#0a101c;min-width:0}
+.lb-row.podium{background:linear-gradient(90deg,rgba(120,87,240,.12),rgba(10,16,28,.98));border-color:#3a3564}
+.lb-rank{font-size:14px;font-weight:950;text-align:center;color:#f7f8fb;white-space:nowrap}
+.lb-info{min-width:0}
+.lb-info strong{display:block;font-size:12px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-info small{display:block;margin-top:3px;color:#8d99b0;font-size:7.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-value{font-size:16px;font-weight:950;color:#5ee0a0;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lb-footnote{margin:9px 2px 0;color:#7e8ba3;font-size:7px;line-height:1.35}
+
+@media(max-width:760px){
+  .lb-card{padding:8px}
+  .lb-row{grid-template-columns:34px minmax(0,1fr) minmax(74px,auto);gap:6px;padding:8px}
+  .lb-rank{font-size:12px}
+  .lb-info strong{font-size:10.5px}
+  .lb-info small{font-size:7px}
+  .lb-value{font-size:clamp(12px,3.7vw,15px)}
+  .lb-title>span{font-size:25px}
+}
+@media(max-width:390px){
+  .lb-row{grid-template-columns:30px minmax(0,1fr) 70px}
+  .lb-value{font-size:12px}
+}
