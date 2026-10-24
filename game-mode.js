@@ -10,9 +10,9 @@
   const int=n=>Number.isFinite(Number(n))?Math.max(0,Math.floor(Number(n))):0;
   const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){return null}};
   let game=load();
-  if(!game||game.version!==1)game={version:1,wallets:{[USER]:100},transactions:[],cities:{},adminPreview:true};
-  if(!game.wallets)game.wallets={[USER]:100};
-  if(game.wallets[USER]===undefined)game.wallets[USER]=100;
+  if(!game||game.version!==1)game={version:1,wallets:{[USER]:1000},transactions:[],cities:{},adminPreview:true};
+  if(!game.wallets)game.wallets={[USER]:1000};
+  if(game.wallets[USER]===undefined)game.wallets[USER]=1000;
   game.adminPreview=true;
   if(!game.cities)game.cities={};
   if(!Array.isArray(game.notifications))game.notifications=[];
@@ -279,7 +279,7 @@
       <div class="metric"><span>KAUFPREISSUMME</span><strong>${money(worth)}</strong></div></div>
       <div class="card"><strong>Meine Häuser in ${esc(city().name)}</strong>
        ${owned.map(b=>`<div class="owned-row fc-click" data-building="${esc(b.id)}"><span><strong>${esc(b.name)}</strong><div class="rankmeta">Letzter Auktionspreis ${money(b.lastAuctionPrice)}</div></span><b>→</b></div>`).join("")||'<div class="note">In dieser Stadt besitzt du noch keine digitalen Gebäude.</div>'}</div>
-      <button class="action" id="topupWallet">+ CHF 100 SPIELGELD</button>
+      <button class="action" id="topupWallet">+ CHF 1’000 SPIELGELD</button>
       <div class="card"><strong>Reserviert</strong><div class="note">${money(reserved())} für laufende Gebote.</div></div>
       ${disclaimer()}`);
     panel.querySelectorAll("[data-building]").forEach(el=>el.onclick=()=>showBuilding(el.dataset.building));
@@ -288,18 +288,18 @@
   function showWallet(flash=""){
     if(typeof flash!=="string")flash="";
     activate("portfolio");
-    openPanel(`<div class="eyebrow">SPIELKONTO · SPIELGELD</div><h2>Guthaben aufladen</h2>
+    openPanel(`<div class="eyebrow">SPIELKONTO · SPIELGELD</div><h2>Spielgeld nachladen</h2>
       ${flash?`<div class="fc-flash">${esc(flash)}</div>`:""}
       <div class="fc-hero"><span>AKTUELLES SPIELGELD</span><strong>${money(balance())}</strong><small>Davon verfügbar: ${money(freeBalance())} · ${money(reserved())} reserviert</small></div>
       <div class="card"><strong>Spielgeld nachladen</strong><div class="fc-topup-grid">
-        <button class="action secondary" data-topup="100">+ CHF 100</button>
+        <button class="action secondary" data-topup="1000">+ CHF 1’000</button>
       </div></div>
       <button class="action secondary" id="returnAccount">ZURÜCK ZU MEINEM KONTO</button>${disclaimer()}`);
     panel.querySelectorAll("[data-topup]").forEach(b=>b.onclick=()=>{
       const amount=int(b.dataset.topup);
       game.wallets[USER]=balance()+amount;
-      game.transactions.push({type:"demo-credit",amount,title:"Testguthaben",at:new Date().toISOString()});
-      save();updateHeader();showWallet(`${money(amount)} Testguthaben gutgeschrieben. Keine echte Zahlung.`);
+      game.transactions.push({type:"demo-credit",amount,title:"Spielgeld",at:new Date().toISOString()});
+      save();updateHeader();showWallet(`${money(amount)} Spielgeld gutgeschrieben.`);
     });
     $("returnAccount").onclick=()=>showPortfolio();
   }
