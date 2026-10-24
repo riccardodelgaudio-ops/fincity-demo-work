@@ -1,12 +1,6 @@
 // Global building selection for FinCity demo.
 // Any rendered building can be tapped. In Switzerland we query the official GWR layer via geo.admin.ch.
 (function(){
-  const genericPhotos=[
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=82',
-    'https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=1200&q=82',
-    'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=82',
-    'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&q=82'
-  ];
   const knownHitLayers=['fincity-owned-hit','fincity-active-hit','fincity-auction-hit','fincity-trophy-hit'];
 
   function polygonCenter(g){
@@ -27,6 +21,15 @@
     const e=2600072.37+211455.93*lonAux-10938.51*lonAux*latAux-0.36*lonAux*latAux*latAux-44.54*lonAux*lonAux*lonAux;
     const n=1200147.07+308807.95*latAux+3745.25*lonAux*lonAux+76.63*latAux*latAux-194.56*lonAux*lonAux*latAux+119.79*latAux*latAux*latAux;
     return [e,n];
+  }
+
+  function swissimageEmbed(lon,lat){
+    const [e,n]=wgs84ToLv95(lon,lat);
+    const c=e.toFixed(1)+','+n.toFixed(1);
+    return 'https://map.geo.admin.ch/#/embed?lang=de&center='+c+'&z=13&topic=ech&layers=ch.swisstopo.swissimage-product&bgLayer=voidLayer&crosshair=marker,'+c+'&noSimpleZoom=true';
+  }
+  function streetViewUrl(lon,lat){
+    return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+encodeURIComponent(lat+','+lon)+'&fov=80';
   }
 
   async function officialSwissBuilding(lon,lat){
@@ -55,18 +58,20 @@
 
   function requestKey(obj){return 'fincity-auction-request:'+String(obj.egid||obj.address||`${obj.lon},${obj.lat}`)}
   function requestCount(obj){return Number(localStorage.getItem(requestKey(obj))||0)}
-  function photoFor(obj){const s=String(obj.egid||obj.address||obj.lon);let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))>>>0;return genericPhotos[h%genericPhotos.length]}
 
   function showGenericBuilding(obj){
     window.__finCityLastGenericBuilding=obj;
-    const cnt=requestCount(obj);const photo=photoFor(obj);
+    const cnt=requestCount(obj);
+    const aerial=swissimageEmbed(obj.lon,obj.lat);
+    const street=streetViewUrl(obj.lon,obj.lat);
     openPanel(`
       <div class="eyebrow">FREIES KARTENGEBÄUDE · AUKTIONSANFRAGE</div>
       <h2>${obj.address||'Gebäude'}</h2>
-      <div style="position:relative;height:180px;border-radius:14px;overflow:hidden;background:#111827">
-        <img src="${photo}" alt="Symbolbild Gebäude" style="width:100%;height:100%;object-fit:cover;display:block">
-        <div style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.72);padding:5px 7px;border-radius:7px;font-size:7px;letter-spacing:.06em">VORSCHAUBILD · AMTLICHES LUFTBILD & STREET VIEW UNTEN</div>
+      <div style="position:relative;height:210px;border-radius:14px;overflow:hidden;background:#111827;border:1px solid #2b3851">
+        <iframe src="${aerial}" title="SWISSIMAGE Luftbild ${obj.address||'Gebäude'}" loading="lazy" style="width:100%;height:100%;border:0;display:block"></iframe>
+        <div style="position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.78);padding:5px 7px;border-radius:7px;font-size:7px;letter-spacing:.06em">SWISSIMAGE · EXAKTER KARTENSTANDORT</div>
       </div>
+      <a href="${street}" target="_blank" rel="noopener" class="action secondary" style="display:flex;text-decoration:none;align-items:center;justify-content:center;margin-top:8px">👁 REALE STRASSENANSICHT ÖFFNEN</a>
       <div class="card">
         <div class="previewrow"><span>Adresse</span><b>${obj.address}</b></div>
         <div class="previewrow"><span>Adressquelle</span><b>${obj.official?'BUND · GWR / GEO.ADMIN.CH':'KARTEN-GEOCODING · DEMO'}</b></div>
@@ -74,7 +79,7 @@
         ${obj.units!==null&&obj.units!==undefined&&obj.units!==''?`<div class="previewrow"><span>Wohneinheiten (Gebäudegrösse)</span><b>${obj.units}</b></div>`:''}
         <div class="previewrow"><span>Demo-Anfragen auf diesem Gerät</span><b>${cnt}</b></div>
       </div>
-      <div class="card"><strong>Noch nicht als digitales Spielgebäude freigeschaltet</strong><div class="note">Du kannst diesen echten Kartenstandort als digitales FinCity-Spielgebäude für eine spätere Auktion vorschlagen. Nur Administratoren dürfen die Auktion freigeben. Der Kauf überträgt keine Rechte an der realen Immobilie.</div></div>
+      <div class="card"><strong>Noch nicht als digitales Spielgebäude freigeschaltet</strong><div class="note">Diesen Kartenstandort kannst du als digitales FinCity-Spielgebäude für eine Auktion vorschlagen.</div></div>
       <button class="action" id="startAuctionRequest">AUKTIONSVORSCHLAG SENDEN</button>
       <button class="action secondary" id="centerGeneric">AUF GEBÄUDE ZENTRIEREN</button>
     `);
@@ -88,7 +93,7 @@
       <div class="card">
         <div class="previewrow"><span>Digitales Spielgebäude</span><b>${obj.address}</b></div>
         ${obj.egid?`<div class="previewrow"><span>Gebäude-ID (EGID)</span><b>${obj.egid}</b></div>`:''}
-        <p class="note">Du schlägst diesen realen Kartenstandort als digitales FinCity-Auktionsobjekt vor. Nur ein Admin kann ihn prüfen und innerhalb des Wochenlimits freischalten.</p>
+        <p class="note">Du schlägst diesen Standort als digitalen City Drop vor.</p>
       </div>
       <button class="action" id="confirmAuctionRequest">DIGITALEN CITY DROP VORSCHLAGEN</button>
       <p class="note">Deine Anfrage wird nur im Browser dieser Demo gespeichert. Kein Geldtransfer und kein Eigentum an der echten Immobilie.</p>
