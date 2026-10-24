@@ -19,23 +19,23 @@
     const rows=profiles();if(rows.some(p=>p.handle.toLowerCase()===handle.toLowerCase()))return {ok:false,msg:"Dieser Spielername existiert auf diesem Gerät bereits."};
     rows.push({handle,createdAt:new Date().toISOString()});saveProfiles(rows);
     const g=game()||{version:1,wallets:{},transactions:[],cities:{},notifications:[],adminPreview:true};
-    g.wallets=g.wallets||{};g.wallets[handle]=100;g.adminPreview=true;
-    g.transactions=g.transactions||[];g.transactions.push({type:"player-created",user:handle,amount:100,title:"Startguthaben",at:new Date().toISOString()});
+    g.wallets=g.wallets||{};g.wallets[handle]=1000;g.adminPreview=true;
+    g.transactions=g.transactions||[];g.transactions.push({type:"player-created",user:handle,amount:1000,title:"Startguthaben",at:new Date().toISOString()});
     localStorage.setItem(GKEY,JSON.stringify(g));localStorage.setItem(AKEY,handle);
     location.reload();
   }
   function switchTo(handle){
     if(!profiles().some(p=>p.handle===handle))return;
-    const g=game();if(g){g.wallets=g.wallets||{};if(g.wallets[handle]===undefined)g.wallets[handle]=100;g.adminPreview=true;localStorage.setItem(GKEY,JSON.stringify(g))}
+    const g=game();if(g){g.wallets=g.wallets||{};if(g.wallets[handle]===undefined)g.wallets[handle]=10000;g.adminPreview=true;localStorage.setItem(GKEY,JSON.stringify(g))}
     localStorage.setItem(AKEY,handle);location.reload();
   }
   function openPlayers(flash=""){
     const rows=profiles(),g=game()||{wallets:{}};const current=active();
     openPanel('<div class="eyebrow">FINCITY · SPIELER</div><h2>Spielerprofil</h2>'+
       (flash?'<div class="fc-flash">'+esc(flash)+'</div>':'')+
-      '<div class="card"><strong>Neuen Spieler erstellen</strong><div class="note">Jeder neue Spieler startet mit <b>CHF 100 Spielgeld</b>. Alle Spieler auf diesem Gerät teilen dieselbe FinCity-Spielwelt und können gegeneinander bieten.</div>'+
+      '<div class="card"><strong>Party-Modus · 4 Startspieler</strong><div class="note">@Player1 bis @Player4 sind vorbereitet – je CHF 1’000 Spielgeld.</div></div><div class="card"><strong>Weiteren Spieler erstellen</strong><div class="note">Jeder neue Spieler startet mit <b>CHF 1’000 Spielgeld</b>. Alle Spieler auf diesem Gerät teilen dieselbe FinCity-Spielwelt und können gegeneinander bieten.</div>'+
       '<label class="eyebrow" for="fcNewPlayer">SPIELERNAME</label><input id="fcNewPlayer" class="fc-input" maxlength="20" placeholder="z. B. CityInvestor">'+
-      '<button class="action" id="fcCreatePlayer">SPIELER ERSTELLEN · CHF 100</button></div>'+
+      '<button class="action" id="fcCreatePlayer">SPIELER ERSTELLEN · CHF 1’000</button></div>'+
       '<div class="card"><strong>Spieler auf diesem Gerät</strong>'+
       rows.map(p=>'<div class="owned-row"><span><strong>'+esc(p.handle)+'</strong><div class="rankmeta">'+money((g.wallets||{})[p.handle]||0)+' Spielgeld'+(p.handle===current?' · AKTIV':'')+'</div></span><button class="fc-small" data-local-player="'+esc(p.handle)+'">'+(p.handle===current?'AKTIV':'WECHSELN')+'</button></div>').join('')+
       '</div><button class="action secondary" id="fcBackAccount">ZURÜCK ZUM KONTO</button><p class="fc-disclaimer">Lokale Spielprofile · keine Registrierung, kein Passwort und kein echtes Geld.</p>');
@@ -57,7 +57,7 @@
     if(!panel||!panel.textContent.includes("Guthaben aufladen"))return;
     panel.querySelectorAll('[data-topup="500"],[data-topup="1000"]').forEach(x=>x.remove());
     panel.querySelectorAll(".card").forEach(c=>{if(c.textContent.includes("Kreditkarte"))c.remove()});
-    const h=panel.querySelector("h2");if(h)h.textContent="CHF 100 Spielgeld nachladen";
+    const h=panel.querySelector("h2");if(h)h.textContent="CHF 1’000 Spielgeld nachladen";
   }
   const obs=new MutationObserver(()=>{decorateAccount();cleanWallet()});
   if(panel)obs.observe(panel,{childList:true,subtree:true});
