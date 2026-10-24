@@ -286,7 +286,7 @@
       <div class="card"><strong>Persönliches Konto</strong><div class="note">Reservierte Gebote: ${money(reserved())}. Guthaben und Auktionen dieser Version werden ausschliesslich lokal im Browser simuliert.</div></div>
       ${disclaimer()}`);
     panel.querySelectorAll("[data-building]").forEach(el=>el.onclick=()=>showBuilding(el.dataset.building));
-    $("topupWallet").onclick=showWallet;
+    $("topupWallet").onclick=()=>showWallet();
   }
 function showCardCheckout(amount,flash=""){
   if(!Number.isSafeInteger(amount)||amount<10||amount>5000||amount%10!==0)return showWallet("Bitte einen Betrag zwischen CHF 10 und CHF 5'000 in Schritten von CHF 10 auswählen.");
@@ -303,9 +303,10 @@ function showCardCheckout(amount,flash=""){
     game.transactions.push({type:"simulated-card-payment",amount,title:"Simulierte Kreditkartenzahlung",at:new Date().toISOString()});
     save();updateHeader();showWallet(`${money(amount)} durch simulierte Kartenzahlung gutgeschrieben. Es wurde kein echtes Geld abgebucht.`);
   };
-  $("cancelTestCard").onclick=showWallet;
+  $("cancelTestCard").onclick=()=>showWallet();
 }
   function showWallet(flash=""){
+    if(typeof flash!=="string")flash="";
     activate("portfolio");
     openPanel(`<div class="eyebrow">SPIELKONTO · SPIELGELD</div><h2>Guthaben aufladen</h2>
       ${flash?`<div class="fc-flash">${esc(flash)}</div>`:""}
