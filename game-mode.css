@@ -52,3 +52,29 @@
 .side-nav{max-height:calc(100vh - 110px);overflow-y:auto;scrollbar-width:none}
 .side-nav::-webkit-scrollbar{display:none}
 @media(max-height:740px){.nav-btn{height:58px}.nav-btn .ico{font-size:20px}.side-nav{max-height:calc(100vh - 105px)}}
+
+/* Clear mobile nav icons */
+.nav-emoji{font-size:24px!important;line-height:1!important;display:block!important;filter:none!important}
+.nav-btn.active .nav-emoji{filter:drop-shadow(0 0 7px rgba(130,94,245,.62))!important}
+
+/* Sold-building digital market value */
+.gm-market-card{margin:10px 0;padding:13px;border:1px solid #3b3268;border-radius:16px;background:linear-gradient(180deg,#12162a,#0a101d);overflow:hidden}
+.gm-market-numbers{display:grid;grid-template-columns:1fr 26px 1fr;gap:8px;align-items:center;margin-top:8px}
+.gm-market-numbers span{display:block;font-size:7px;color:#8d9ab2;letter-spacing:.09em}
+.gm-market-numbers b{display:block;font-size:20px;margin-top:3px}
+.gm-market-numbers>div:last-child b,.gm-green{color:#65dda3!important}
+.gm-arrow{text-align:center;color:#8f71f2;font-size:20px}
+.gm-up{display:inline-block;margin-top:8px;padding:5px 8px;border-radius:999px;background:#27204f;color:#c0afff;font-size:9px;font-weight:900}
+.gm-chart-svg{display:block;width:100%;height:auto;margin-top:4px}
+.gm-tags{display:flex;gap:5px;overflow:auto;margin:1px 0 8px}
+.gm-tags span{white-space:nowrap;padding:4px 7px;border:1px solid #2c3850;border-radius:999px;color:#a8b4ca;font-size:7px}
+.gm-market-note{margin:0;color:#8d99af;font-size:8px;line-height:1.4}
+.gm-mini{font-size:8px;color:#b29dff;margin-top:2px}
+
+@media(max-width:760px){
+  .gm-market-numbers b{font-size:17px}
+  .gm-market-card{padding:11px}
+  .nav-emoji{font-size:22px!important}
+  .fc-disclaimer{font-size:9px;line-height:1.35;padding:9px}
+  .note{line-height:1.35}
+}
