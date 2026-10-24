@@ -33,7 +33,7 @@
     const rows=profiles(),g=game()||{wallets:{}};const current=active();
     openPanel('<div class="eyebrow">FINCITY · SPIELER</div><h2>Spielerprofil</h2>'+
       (flash?'<div class="fc-flash">'+esc(flash)+'</div>':'')+
-      '<div class="card"><strong>Party-Modus · 4 Startspieler</strong><div class="note">@Player1 bis @Player4 sind vorbereitet – je CHF 1’000 Spielgeld.</div></div><div class="card"><strong>Weiteren Spieler erstellen</strong><div class="note">Jeder neue Spieler startet mit <b>CHF 1’000 Spielgeld</b>. Alle Spieler auf diesem Gerät teilen dieselbe FinCity-Spielwelt und können gegeneinander bieten.</div>'+
+      '<div class="card"><strong>Party-Modus · 4 Startspieler</strong><div class="note">@Player1 bis @Player4 sind vorbereitet – je CHF 1’000 Spielgeld.</div><div class="fc-party-links"><button class="fc-small" data-party-link="Player1">LINK 1</button><button class="fc-small" data-party-link="Player2">LINK 2</button><button class="fc-small" data-party-link="Player3">LINK 3</button><button class="fc-small" data-party-link="Player4">LINK 4</button></div></div><div class="card"><strong>Weiteren Spieler erstellen</strong><div class="note">Jeder neue Spieler startet mit <b>CHF 1’000 Spielgeld</b>. Alle Spieler auf diesem Gerät teilen dieselbe FinCity-Spielwelt und können gegeneinander bieten.</div>'+
       '<label class="eyebrow" for="fcNewPlayer">SPIELERNAME</label><input id="fcNewPlayer" class="fc-input" maxlength="20" placeholder="z. B. CityInvestor">'+
       '<button class="action" id="fcCreatePlayer">SPIELER ERSTELLEN · CHF 1’000</button></div>'+
       '<div class="card"><strong>Spieler auf diesem Gerät</strong>'+
@@ -41,6 +41,7 @@
       '</div><button class="action secondary" id="fcBackAccount">ZURÜCK ZUM KONTO</button><p class="fc-disclaimer">Lokale Spielprofile · keine Registrierung, kein Passwort und kein echtes Geld.</p>');
     $("fcCreatePlayer").onclick=()=>{const h=normalize($("fcNewPlayer").value);if(!h)return openPlayers("Bitte einen gültigen Spielernamen eingeben.");create(h)};
     panel.querySelectorAll("[data-local-player]").forEach(b=>b.onclick=()=>{if(b.dataset.localPlayer!==current)switchTo(b.dataset.localPlayer)});
+    panel.querySelectorAll("[data-party-link]").forEach(b=>b.onclick=async()=>{const url=location.origin+location.pathname+"?player="+encodeURIComponent(b.dataset.partyLink);try{await navigator.clipboard.writeText(url);b.textContent="KOPIERT ✓";setTimeout(()=>b.textContent="LINK "+b.dataset.partyLink.replace("Player",""),1200)}catch(e){prompt("Link kopieren:",url)}});
     $("fcBackAccount").onclick=()=>window.showPortfolio?showPortfolio():closePanel();
   }
   window.showFinCityPlayers=openPlayers;
@@ -62,7 +63,7 @@
   const obs=new MutationObserver(()=>{decorateAccount();cleanWallet()});
   if(panel)obs.observe(panel,{childList:true,subtree:true});
 
-  const css=document.createElement("style");css.textContent="#toggleAdmin{display:none!important}.fc-player-card{margin-top:10px}";
+  const css=document.createElement("style");css.textContent="#toggleAdmin{display:none!important}.fc-player-card{margin-top:10px}.fc-party-links{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:9px}";
   document.head.appendChild(css);
 
   const top=document.getElementById("portfolioTop");if(top)top.title="Spielkonto von "+active();
