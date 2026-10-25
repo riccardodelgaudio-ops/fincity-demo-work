@@ -32,19 +32,49 @@
     return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+encodeURIComponent(lat+','+lon)+'&fov=80';
   }
 
-  async function officialSwissBuilding(lon,lat){
+  function addressKey(value){
+    return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/strasse/g,'str').replace(/straße/g,'str').replace(/[^a-z0-9.]+/g,' ').trim();
+  }
+  function sameAddress(a,b){
+    const ka=addressKey(a),kb=addressKey(b);if(!ka||!kb)return false;
+    const house=s=>s.match(/\b\d+(?:\.\d+)?[a-z]?\b/)?.[0]||'';
+    const ha=house(ka),hb=house(kb);if(ha&&hb&&ha!==hb)return false;
+    const street=s=>s.replace(/\b\d+(?:\.\d+)?[a-z]?\b.*$/,'').trim();
+    const sa=street(ka),sb=street(kb);
+    return sa&&sb&&(sa.includes(sb)||sb.includes(sa));
+  }
+  function gwrInfo(a){
+    if(!a)return null;
+    const street=a.strname_deinr||a.label||'';
+    const plz=String(a.dplz4||a.plz_plz6||'').split('/')[0];
+    const town=a.dplzname||a.ggdename||'';
+    return {address:[street,[plz,town].filter(Boolean).join(' ')].filter(Boolean).join(', '),egid:a.egid||a.EGID||null,units:a.ganzwhg??a.GANZWHG??null,official:true,raw:a};
+  }
+  async function linkedGwr(preferred){
+    if(!preferred?.featureId&&!preferred?.gwrLink)return null;
+    try{
+      let href=preferred.gwrLink||'/rest/services/ech/MapServer/ch.bfs.gebaeude_wohnungs_register/'+encodeURIComponent(preferred.featureId);
+      if(preferred.featureId)href=href.replace('<featureid>',encodeURIComponent(preferred.featureId));
+      const url=href.startsWith('http')?href:'https://api3.geo.admin.ch'+href;
+      const r=await fetch(url);if(!r.ok)return null;
+      const j=await r.json();
+      const a=j.feature?.attributes||j.attributes||j.properties||j.feature?.properties||null;
+      return gwrInfo(a);
+    }catch(e){return null}
+  }
+  async function officialSwissBuilding(lon,lat,preferred=null){
+    const linked=await linkedGwr(preferred);
+    if(linked)return linked;
     const [e,n]=wgs84ToLv95(lon,lat);
-    const q=new URLSearchParams({geometryType:'esriGeometryPoint',geometry:`${e},${n}`,imageDisplay:'100,100,96',mapExtent:'0,0,100,100',tolerance:'18',layers:'all:ch.bfs.gebaeude_wohnungs_register',returnGeometry:'false',sr:'2056',lang:'de'});
+    const q=new URLSearchParams({geometryType:'esriGeometryPoint',geometry:`${e},${n}`,imageDisplay:'100,100,96',mapExtent:'0,0,100,100',tolerance:'4',layers:'all:ch.bfs.gebaeude_wohnungs_register',returnGeometry:'false',sr:'2056',lang:'de'});
     const r=await fetch('https://api3.geo.admin.ch/rest/services/ech/MapServer/identify?'+q.toString());
     if(!r.ok)throw new Error('GWR unavailable');
     const j=await r.json();
     const candidates=(j.results||[]).filter(x=>x.layerBodId==='ch.bfs.gebaeude_wohnungs_register');
     if(!candidates.length)return null;
-    const a=candidates[0].attributes||candidates[0].properties||{};
-    const street=a.strname_deinr||a.label||'';
-    const plz=String(a.dplz4||a.plz_plz6||'').split('/')[0];
-    const town=a.dplzname||a.ggdename||'';
-    return {address:[street,[plz,town].filter(Boolean).join(' ')].filter(Boolean).join(', '),egid:a.egid||null,units:a.ganzwhg??null,official:true,raw:a};
+    const info=gwrInfo(candidates[0].attributes||candidates[0].properties||{});
+    if(preferred?.address&&info?.address&&!sameAddress(preferred.address,info.address))return null;
+    return info;
   }
 
   async function fallbackAddress(lon,lat){
@@ -74,7 +104,7 @@
       <a href="${street}" target="_blank" rel="noopener" class="action secondary" style="display:flex;text-decoration:none;align-items:center;justify-content:center;margin-top:8px">👁 REALE STRASSENANSICHT ÖFFNEN</a>
       <div class="card">
         <div class="previewrow"><span>Adresse</span><b>${obj.address}</b></div>
-        <div class="previewrow"><span>Adressquelle</span><b>${obj.official?'BUND · GWR / GEO.ADMIN.CH':'KARTEN-GEOCODING · DEMO'}</b></div>
+        <div class="previewrow"><span>Adressquelle</span><b>${obj.addressSource|| (obj.official?'BUND · GEO.ADMIN.CH':'KARTEN-GEOCODING')}</b></div>
         ${obj.egid?`<div class="previewrow"><span>EGID</span><b>${obj.egid}</b></div>`:''}
         ${obj.units!==null&&obj.units!==undefined&&obj.units!==''?`<div class="previewrow"><span>Wohneinheiten (Gebäudegrösse)</span><b>${obj.units}</b></div>`:''}
         <div class="previewrow"><span>Demo-Anfragen auf diesem Gerät</span><b>${cnt}</b></div>
@@ -113,11 +143,23 @@
     };
   }
 
-  async function loadGenericBuilding(lon,lat){
-    openPanel(`<div class="eyebrow">GEBÄUDE WIRD GELADEN</div><h2>Adresse wird geprüft …</h2><div class="card"><div class="note">FinCity sucht die offizielle Gebäudeadresse und den GWR-Eintrag.</div></div>`);
-    let info=null;try{info=await officialSwissBuilding(lon,lat)}catch(err){}
-    if(!info)info=await fallbackAddress(lon,lat);
-    showGenericBuilding({...info,lon,lat});
+  async function loadGenericBuilding(lon,lat,preferred=null){
+    openPanel(`<div class="eyebrow">GEBÄUDE WIRD GELADEN</div><h2>Adresse wird geprüft …</h2><div class="card"><div class="note">FinCity verknüpft die gewählte Adresse mit dem amtlichen GWR.</div></div>`);
+    let info=null;try{info=await officialSwissBuilding(lon,lat,preferred)}catch(err){}
+    let base=preferred?.address?{
+      address:preferred.address,
+      official:Boolean(preferred.officialAddress),
+      addressSource:preferred.addressSource||'BUND · AMTLICHES GEBÄUDEADRESSVERZEICHNIS',
+      featureId:preferred.featureId||null,
+      gwrLink:preferred.gwrLink||null,
+      addressLink:preferred.addressLink||null
+    }:null;
+    if(!base&&!info)base=await fallbackAddress(lon,lat);
+    const merged={...(info||{}),...(base||{}),lon,lat};
+    // The selected/search address is authoritative. GWR only contributes attributes such as EGID/units.
+    if(preferred?.address)merged.address=preferred.address;
+    if(info){merged.egid=info.egid;merged.units=info.units;merged.raw=info.raw}
+    showGenericBuilding(merged);
   }
   window.openGenericBuildingFromCoordinates=loadGenericBuilding;
 
