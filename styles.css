@@ -97,3 +97,46 @@ body:not(.fc-real3d-active) .map-controls{display:flex!important}
 .filters{z-index:140!important}
 .panel{z-index:180!important}
 .side-nav{z-index:220!important}
+
+/* Keep top map controls above map and clear of sidebar */
+#fcAddressSearch,.fc-address-search{z-index:520!important}
+.filters{
+  z-index:500!important;
+  position:fixed!important;
+}
+.filter{position:relative!important;z-index:501!important}
+.side-nav{z-index:480!important}
+.panel{z-index:470!important}
+.legend{z-index:460!important}
+
+@media(max-width:760px){
+  .fc-address-search{
+    top:84px!important;
+    left:90px!important;
+    right:8px!important;
+    width:auto!important;
+  }
+  .filters{
+    top:128px!important;
+    left:90px!important;
+    right:8px!important;
+    width:auto!important;
+    display:flex!important;
+    gap:6px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    padding:0 2px 4px!important;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .filters::-webkit-scrollbar{display:none}
+  .filter{
+    flex:0 0 auto!important;
+    white-space:nowrap!important;
+    min-width:max-content!important;
+  }
+  .panel{
+    top:172px!important;
+    max-height:calc(100vh - 186px)!important;
+  }
+}
