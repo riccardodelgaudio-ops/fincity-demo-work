@@ -27,15 +27,36 @@
     try{map.setLight({anchor:'viewport',color:'#ffffff',intensity:.5,position:[1.15,210,38]})}catch(e){}
     try{
       if(map.getLayer('fincity-3d')){
-        map.setPaintProperty('fincity-3d','fill-extrusion-opacity',.94);
+        map.setPaintProperty('fincity-3d','fill-extrusion-color','#ffffff');
+        map.setPaintProperty('fincity-3d','fill-extrusion-opacity',.16);
+      }
+    }catch(e){}
+  }
+  function ensureSatellite(){
+    if(!window.map)return;
+    try{
+      if(!map.getSource('sat'))map.addSource('sat',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Tiles © Esri'});
+      if(!map.getLayer('satbase')){
+        const firstSymbol=(map.getStyle().layers||[]).find(l=>l.type==='symbol')?.id;
+        map.addLayer({id:'satbase',type:'raster',source:'sat',paint:{'raster-opacity':.92,'raster-saturation':-.08,'raster-contrast':.06,'raster-brightness-min':.08,'raster-brightness-max':.96}},firstSymbol);
+      }
+    }catch(e){}
+  }
+  function styleHybrid3d(){
+    if(!window.map)return;
+    try{
+      if(map.getLayer('fincity-3d')){
+        map.setPaintProperty('fincity-3d','fill-extrusion-color','#ffffff');
+        map.setPaintProperty('fincity-3d','fill-extrusion-opacity',.16);
       }
     }catch(e){}
   }
   function forceInvestmentView(){
     if(!window.map)return;
-    try{if(map.getLayer('satbase'))map.removeLayer('satbase')}catch(e){}
-    try{map.easeTo({pitch:58,bearing:-14,zoom:Math.max(map.getZoom(),14.1),duration:450})}catch(e){}
+    ensureSatellite();
+    try{map.easeTo({pitch:55,bearing:-12,zoom:Math.max(map.getZoom(),14.35),duration:450})}catch(e){}
     hideNoise();
+    styleHybrid3d();
   }
   window.refreshFinCityCleanMap=forceInvestmentView;
   function install(){
