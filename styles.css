@@ -62,3 +62,13 @@ body.fc-real3d-required .map-controls{display:none!important}
   body.fc-real3d-required .filters{top:128px!important}
   body.fc-real3d-required .panel{top:170px!important;max-height:calc(100vh - 184px)!important}
 }
+
+/* REAL 3D setup fallback: never darken or disable the existing map */
+body:not(.fc-real3d-active) #map{filter:none!important;opacity:1!important;visibility:visible!important}
+body:not(.fc-real3d-active) .map-controls{display:flex!important}
+@media(max-width:760px){
+  body:not(.fc-real3d-active) .map-controls{display:grid!important}
+  body:not(.fc-real3d-active) .fc-address-search{top:126px!important}
+  body:not(.fc-real3d-active) .filters{top:170px!important}
+  body:not(.fc-real3d-active) .panel{top:212px!important;max-height:calc(100vh - 226px)!important}
+}
