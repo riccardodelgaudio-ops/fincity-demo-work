@@ -89,6 +89,7 @@
     const coords=f.geometry.coordinates,label=resultLabel(f),meta=f.properties||{};
     try{map.stop()}catch(e){}
     try{map.flyTo({center:coords,zoom:18,pitch:50,bearing:-8,duration:900,essential:true})}catch(e){}
+    try{if(window.isFinCityReal3dActive?.())window.flyFinCityReal3dTo?.(coords[0],coords[1],360)}catch(e){}
     setTimeout(()=>{
       const known=closestKnownBuilding(coords);
       if(known&&typeof showBuilding==='function'){showBuilding(known.id);return}
