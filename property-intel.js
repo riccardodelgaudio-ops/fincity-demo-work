@@ -15,30 +15,56 @@
       1200147.07+308807.95*la+3745.25*lo*lo+76.63*la*la-194.56*lo*lo*la+119.79*la*la*la
     ];
   }
+  function addressKey(value){
+    return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/strasse/g,'str').replace(/straße/g,'str').replace(/[^a-z0-9.]+/g,' ').trim();
+  }
+  function sameAddress(a,b){
+    const ka=addressKey(a),kb=addressKey(b);if(!ka||!kb)return false;
+    const house=x=>x.match(/\b\d+(?:\.\d+)?[a-z]?\b/)?.[0]||'';
+    if(house(ka)&&house(kb)&&house(ka)!==house(kb))return false;
+    const street=x=>x.replace(/\b\d+(?:\.\d+)?[a-z]?\b.*$/,'').trim();
+    const sa=street(ka),sb=street(kb);
+    return sa&&sb&&(sa.includes(sb)||sb.includes(sa));
+  }
+  async function linkedGwr(p){
+    if(!p?.featureId&&!p?.gwrLink)return null;
+    try{
+      let href=p.gwrLink||('/rest/services/ech/MapServer/'+GWR+'/'+encodeURIComponent(p.featureId));
+      if(p.featureId)href=href.replace('<featureid>',encodeURIComponent(p.featureId));
+      const url=href.startsWith('http')?href:'https://api3.geo.admin.ch'+href;
+      const r=await fetch(url);if(!r.ok)return null;
+      const j=await r.json();
+      return j.feature?.attributes||j.attributes||j.properties||j.feature?.properties||null;
+    }catch(e){return null}
+  }
   async function gwr(p){
-    const key=Number(p.lng).toFixed(5)+','+Number(p.lat).toFixed(5);
+    const key=(p.featureId||'')+'|'+Number(p.lng).toFixed(5)+','+Number(p.lat).toFixed(5);
     if(cache.has(key))return cache.get(key);
     const xy=lv95(Number(p.lng),Number(p.lat));
-    const q=new URLSearchParams({
-      geometryType:'esriGeometryPoint',geometry:xy[0]+','+xy[1],imageDisplay:'100,100,96',
-      mapExtent:'0,0,100,100',tolerance:'18',layers:'all:'+GWR,returnGeometry:'false',sr:'2056',lang:'de'
-    });
-    let raw=null;
-    try{
-      const r=await fetch('https://api3.geo.admin.ch/rest/services/ech/MapServer/identify?'+q.toString());
-      if(r.ok){
-        const j=await r.json();
-        const hit=(j.results||[]).find(x=>x.layerBodId===GWR)||(j.results||[])[0];
-        raw=hit&&(hit.attributes||hit.properties)||null;
-      }
-    }catch(e){}
-    const out={raw,xy};cache.set(key,out);return out;
+    let raw=await linkedGwr(p),linked=Boolean(raw);
+    if(!raw){
+      const q=new URLSearchParams({
+        geometryType:'esriGeometryPoint',geometry:xy[0]+','+xy[1],imageDisplay:'100,100,96',
+        mapExtent:'0,0,100,100',tolerance:'4',layers:'all:'+GWR,returnGeometry:'false',sr:'2056',lang:'de'
+      });
+      try{
+        const r=await fetch('https://api3.geo.admin.ch/rest/services/ech/MapServer/identify?'+q.toString());
+        if(r.ok){
+          const j=await r.json();
+          const hit=(j.results||[]).find(x=>x.layerBodId===GWR)||(j.results||[])[0];
+          raw=hit&&(hit.attributes||hit.properties)||null;
+        }
+      }catch(e){}
+    }
+    const gwrAddress=clean(pick(raw||{},'strname_deinr','label'));
+    if(p.address&&gwrAddress&&!linked&&!sameAddress(p.address,gwrAddress))raw=null;
+    const out={raw,xy,linked};cache.set(key,out);return out;
   }
-  function detailRows(a){
+  function detailRows(a,p){
     const rows=[];
     const add=(label,value)=>{value=clean(value);if(value&&value!=='0'&&value!=='-999')rows.push([label,value])};
+    add('Adresse',p?.address||pick(a,'strname_deinr','label'));
     add('EGID',pick(a,'egid','EGID'));
-    add('Adresse',pick(a,'strname_deinr','label'));
     add('Gemeinde',pick(a,'ggdename','GGDENAME'));
     add('Baujahr',pick(a,'gbauj','GBAUJ'));
     add('Renovation',pick(a,'grenj','GRENJ'));
@@ -52,8 +78,8 @@
   }
   function geoUrl(p,mode){
     const xy=lv95(Number(p.lng),Number(p.lat)),c=xy[0].toFixed(1)+','+xy[1].toFixed(1);
-    if(mode==='embed')return 'https://map.geo.admin.ch/#/embed?lang=de&center='+c+'&z=12&topic=ech&layers=ch.swisstopo.swissimage-product&bgLayer=voidLayer&crosshair=marker,'+c+'&noSimpleZoom=true';
-    if(mode==='air')return 'https://map.geo.admin.ch/#/map?lang=de&center='+c+'&z=12&topic=ech&layers=ch.swisstopo.swissimage-product&bgLayer=voidLayer&crosshair=marker,'+c;
+    if(mode==='embed')return 'https://map.geo.admin.ch/#/embed?lang=de&center='+c+'&z=12&topic=ech&layers=ch.swisstopo.swissimage-product&crosshair=marker,'+c+'&noSimpleZoom=true';
+    if(mode==='air')return 'https://map.geo.admin.ch/#/map?lang=de&center='+c+'&z=12&topic=ech&layers=ch.swisstopo.swissimage-product&crosshair=marker,'+c;
     return 'https://map.geo.admin.ch/#/map?lang=de&center='+c+'&z=11&topic=ech&layers=ch.kantone.cadastralwebmap-farbe;ch.bfs.gebaeude_wohnungs_register&crosshair=marker,'+c+'&featureInfo=bottomPanel';
   }
   function street(p){return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+encodeURIComponent(p.lat+','+p.lng)+'&fov=80'}
@@ -88,10 +114,10 @@
     const anchor=panel.querySelector('[data-gm-market]')||panel.querySelector('.action');
     if(anchor)panel.insertBefore(box,anchor);else panel.appendChild(box);
     const d=await gwr(p);if(!document.body.contains(box))return;
-    const a=d.raw||{},rows=detailRows(a);
+    const a=d.raw||{},rows=detailRows(a,p);
     const egrid=clean(pick(a,'gegrid','GEGRID'));
     const parcel=clean(pick(a,'gparz','GPARZ'));
-    const addr=clean(pick(a,'strname_deinr','label'))||p.address||p.name||'';
+    const addr=p.address||clean(pick(a,'strname_deinr','label'))||p.name||'';
     const searchValue=egrid||([addr,parcel].filter(Boolean).join(' '))||(Math.round(d.xy[0])+' '+Math.round(d.xy[1]));
     box.dataset.pintel='ready';
     box.innerHTML=
