@@ -235,7 +235,7 @@
       if(active)setTimeout(syncEntities,120);
       return r;
     };
-    setTimeout(()=>enterReal3d(),220);
+    setTimeout(async()=>{try{if(await resolveKey())enterReal3d()}catch(e){}},220);
   }
 
   const css=document.createElement('style');
