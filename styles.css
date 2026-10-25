@@ -89,3 +89,11 @@ body:not(.fc-real3d-active) .map-controls{display:flex!important}
   .filters{top:128px!important}
   .panel{top:170px!important;max-height:calc(100vh - 184px)!important}
 }
+
+/* Address search must always stay above the map, filters and content panels */
+#fcAddressSearch,.fc-address-search{z-index:500!important;isolation:isolate!important;pointer-events:auto!important}
+#fcAddressResults,.fc-address-results{position:relative!important;z-index:510!important;pointer-events:auto!important}
+#fcAddressSearch form{position:relative!important;z-index:511!important}
+.filters{z-index:140!important}
+.panel{z-index:180!important}
+.side-nav{z-index:220!important}
