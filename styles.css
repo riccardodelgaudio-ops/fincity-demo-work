@@ -72,3 +72,20 @@ body:not(.fc-real3d-active) .map-controls{display:flex!important}
   body:not(.fc-real3d-active) .filters{top:170px!important}
   body:not(.fc-real3d-active) .panel{top:212px!important;max-height:calc(100vh - 226px)!important}
 }
+
+/* FinCity has one map experience: clean 3D. Hide legacy map-mode buttons. */
+.map-controls{display:none!important}
+.fc-address-search{top:94px!important}
+.filters{top:142px!important}
+.panel{top:186px!important}
+@media(max-width:760px){
+  .map-controls{display:none!important}
+  .fc-address-search{top:84px!important;left:90px!important;right:8px!important}
+  .filters{top:128px!important;left:90px!important;right:8px!important}
+  .panel{top:170px!important;max-height:calc(100vh - 184px)!important}
+}
+@media(max-width:480px){
+  .fc-address-search{top:84px!important}
+  .filters{top:128px!important}
+  .panel{top:170px!important;max-height:calc(100vh - 184px)!important}
+}
