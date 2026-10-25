@@ -1,9 +1,14 @@
-// FinCity address search: search a Swiss address, focus the exact location and open the linked building flow.
+// FinCity address search: official Swiss address directory first, linked to exact GWR feature.
 (function(){
   let timer=null,requestSeq=0,lastResults=[];
 
   function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
+  function strip(s){const d=document.createElement('div');d.innerHTML=String(s||'');return (d.textContent||'').replace(/\s+/g,' ').trim()}
+  function formatOfficialLabel(s){
+    const t=strip(s);
+    const m=t.match(/^(.*?\b\d+(?:\.\d+)?[A-Za-z]?)\s+(\d{4}\s+.+)$/);
+    return m?m[1]+', '+m[2]:t;
+  }
   function distanceKm(a,b){
     const R=6371,toRad=x=>x*Math.PI/180;
     const dLat=toRad(b[1]-a[1]),dLon=toRad(b[0]-a[0]);
@@ -11,25 +16,62 @@
     const h=Math.sin(dLat/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
     return 2*R*Math.asin(Math.sqrt(h));
   }
+  function resultLabel(f){return f?.properties?.officialAddress||f?.properties?.label||'Adresse'}
 
-  function resultLabel(f){
-    const p=f.properties||{};
-    const street=[p.street||p.name,p.housenumber].filter(Boolean).join(' ');
-    const place=[p.postcode,p.city||p.locality||p.district].filter(Boolean).join(' ');
-    return [street,place].filter(Boolean).join(', ')||p.name||'Adresse';
+  async function swissOfficialSearch(text){
+    const q=String(text||'').trim();if(q.length<3)return [];
+    const params=new URLSearchParams({searchText:q,type:'locations',origins:'address',returnGeometry:'true'});
+    const r=await fetch('https://api3.geo.admin.ch/rest/services/ech/SearchServer?'+params.toString());
+    if(!r.ok)throw new Error('Swiss address search failed');
+    const j=await r.json();
+    return (j.results||[]).filter(x=>x?.attrs?.origin==='address'&&Number.isFinite(Number(x.attrs.lon))&&Number.isFinite(Number(x.attrs.lat))).slice(0,7).map(x=>{
+      const attrs=x.attrs||{};
+      const featureId=attrs.featureId||x.id||null;
+      const links=Array.isArray(x.links)?x.links:[];
+      const gwrLink=links.find(l=>l.title==='ch.bfs.gebaeude_wohnungs_register')?.href||null;
+      const addressLink=links.find(l=>l.title==='ch.swisstopo.amtliches-gebaeudeadressverzeichnis')?.href||null;
+      return {
+        geometry:{type:'Point',coordinates:[Number(attrs.lon),Number(attrs.lat)]},
+        properties:{
+          officialAddress:formatOfficialLabel(attrs.label||attrs.detail||q),
+          label:formatOfficialLabel(attrs.label||attrs.detail||q),
+          type:'house',
+          source:'geo.admin.ch · amtliches Gebäudeadressverzeichnis',
+          featureId,
+          gwrLink,
+          addressLink
+        }
+      };
+    });
+  }
+
+  async function photonFallback(text){
+    const q=String(text||'').trim();
+    const params=new URLSearchParams({q:/schweiz|switzerland|suisse|svizzera/i.test(q)?q:q+', Schweiz',limit:'5',lang:'de'});
+    const r=await fetch('https://photon.komoot.io/api/?'+params.toString());if(!r.ok)return [];
+    const j=await r.json();
+    return (j.features||[]).filter(f=>Array.isArray(f.geometry?.coordinates)).map(f=>{
+      const p=f.properties||{};
+      const street=[p.street||p.name,p.housenumber].filter(Boolean).join(' ');
+      const place=[p.postcode,p.city||p.locality||p.district].filter(Boolean).join(' ');
+      return {...f,properties:{...p,officialAddress:[street,place].filter(Boolean).join(', '),source:'Karten-Geocoding · Fallback'}};
+    });
   }
 
   async function searchAddress(text){
-    const seq=++requestSeq;const q=String(text||'').trim();if(q.length<3)return [];
-    const current=window.getCurrentFinCityCity?getCurrentFinCityCity():null;
-    const params=new URLSearchParams({q:/schweiz|switzerland|suisse|svizzera/i.test(q)?q:`${q}, Schweiz`,limit:'7',lang:'de'});
-    if(current){params.set('lat',String(current.center[1]));params.set('lon',String(current.center[0]))}
+    const seq=++requestSeq;
     try{
-      const r=await fetch('https://photon.komoot.io/api/?'+params.toString());if(!r.ok)throw new Error('search');
-      const j=await r.json();if(seq!==requestSeq)return [];
-      const rows=(j.features||[]).filter(f=>Array.isArray(f.geometry?.coordinates));
+      let rows=await swissOfficialSearch(text);
+      if(!rows.length)rows=await photonFallback(text);
+      if(seq!==requestSeq)return [];
       lastResults=rows;return rows;
-    }catch(e){if(seq===requestSeq)lastResults=[];return []}
+    }catch(e){
+      try{
+        const rows=await photonFallback(text);
+        if(seq!==requestSeq)return [];
+        lastResults=rows;return rows;
+      }catch(err){if(seq===requestSeq)lastResults=[];return []}
+    }
   }
 
   function closestCity(coords){
@@ -37,24 +79,30 @@
     cities.forEach(c=>{const d=distanceKm(coords,c.center);if(d<bestD){bestD=d;best=c}});
     return bestD<=25?{city:best,distance:bestD}:null;
   }
-
   function closestKnownBuilding(coords){
     if(typeof investment==='undefined')return null;let best=null,bestD=Infinity;
     investment.forEach(p=>{const d=distanceKm(coords,[p.lng,p.lat]);if(d<bestD){bestD=d;best=p}});
-    return bestD<=0.055?best:null;
+    return bestD<=0.025?best:null;
   }
 
   function focusAndOpen(f){
-    const coords=f.geometry.coordinates;const label=resultLabel(f);
+    const coords=f.geometry.coordinates,label=resultLabel(f),meta=f.properties||{};
     try{map.stop()}catch(e){}
-    try{map.flyTo({center:coords,zoom:17,pitch:50,bearing:-8,duration:900,essential:true})}catch(e){}
+    try{map.flyTo({center:coords,zoom:18,pitch:50,bearing:-8,duration:900,essential:true})}catch(e){}
     setTimeout(()=>{
       const known=closestKnownBuilding(coords);
       if(known&&typeof showBuilding==='function'){showBuilding(known.id);return}
       if(typeof window.openGenericBuildingFromCoordinates==='function'){
-        window.openGenericBuildingFromCoordinates(coords[0],coords[1]);
+        window.openGenericBuildingFromCoordinates(coords[0],coords[1],{
+          address:label,
+          officialAddress:meta.source?.includes('geo.admin.ch')===true,
+          featureId:meta.featureId||null,
+          gwrLink:meta.gwrLink||null,
+          addressLink:meta.addressLink||null,
+          addressSource:meta.source||null
+        });
       }else{
-        openPanel(`<div class="eyebrow">ADRESSSUCHE</div><h2>${esc(label)}</h2><div class="card"><div class="note">Adresse gefunden und auf der Karte zentriert. Die Gebäude-Verknüpfung wird geladen, sobald die GWR-Funktion verfügbar ist.</div></div>`);
+        openPanel('<div class="eyebrow">ADRESSSUCHE</div><h2>'+esc(label)+'</h2><div class="card"><div class="note">Adresse gefunden und auf der Karte zentriert.</div></div>');
       }
     },950);
   }
@@ -63,10 +111,9 @@
     const f=lastResults[index];if(!f)return;
     const input=document.getElementById('fcAddressInput');if(input)input.value=resultLabel(f);
     hideResults();
-    const coords=f.geometry.coordinates;const near=closestCity(coords);const current=window.getCurrentFinCityCity?getCurrentFinCityCity():null;
+    const coords=f.geometry.coordinates,near=closestCity(coords),current=window.getCurrentFinCityCity?getCurrentFinCityCity():null;
     if(near?.city&&current&&near.city.slug!==current.slug&&typeof switchCity==='function'){
       switchCity(near.city.slug,false);
-      // city-ui-fixes intentionally reasserts the new city camera for ~1.35 s; focus exact address afterwards.
       setTimeout(()=>focusAndOpen(f),1550);
     }else focusAndOpen(f);
   }
@@ -76,9 +123,10 @@
     const box=document.getElementById('fcAddressResults');if(!box)return;
     if(!rows.length){box.innerHTML='<div class="fc-search-empty">Keine eindeutige Schweizer Adresse gefunden.</div>';box.hidden=false;return}
     box.innerHTML=rows.slice(0,5).map((f,i)=>{
-      const p=f.properties||{};const label=resultLabel(f);const kind=p.type==='house'?'Gebäude / Adresse':'Adresse';
-      return `<button type="button" class="fc-search-result" data-address-result="${i}"><span class="fc-result-pin">⌖</span><span><strong>${esc(label)}</strong><small>${esc(kind)} · Schweiz</small></span></button>`;
-    }).join('');box.hidden=false;
+      const label=resultLabel(f),official=f.properties?.source?.includes('geo.admin.ch');
+      return '<button type="button" class="fc-search-result" data-address-result="'+i+'"><span class="fc-result-pin">⌖</span><span><strong>'+esc(label)+'</strong><small>'+(official?'Amtliche Schweizer Adresse':'Adresse · Fallback')+'</small></span></button>';
+    }).join('');
+    box.hidden=false;
     box.querySelectorAll('[data-address-result]').forEach(b=>b.onclick=()=>selectResult(Number(b.dataset.addressResult)));
   }
 
@@ -93,7 +141,7 @@
   function install(){
     if(document.getElementById('fcAddressSearch'))return;
     const wrap=document.createElement('div');wrap.id='fcAddressSearch';wrap.className='fc-address-search';
-    wrap.innerHTML=`<form id="fcAddressForm" autocomplete="off"><button type="submit" id="fcAddressSearchBtn" aria-label="Adresse suchen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button><input id="fcAddressInput" type="search" inputmode="search" placeholder="Adresse suchen …" aria-label="Schweizer Adresse suchen"><button type="button" id="fcAddressClear" aria-label="Suche löschen">×</button></form><div id="fcAddressResults" class="fc-address-results" hidden></div>`;
+    wrap.innerHTML='<form id="fcAddressForm" autocomplete="off"><button type="submit" id="fcAddressSearchBtn" aria-label="Adresse suchen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button><input id="fcAddressInput" type="search" inputmode="search" placeholder="Adresse suchen …" aria-label="Schweizer Adresse suchen"><button type="button" id="fcAddressClear" aria-label="Suche löschen">×</button></form><div id="fcAddressResults" class="fc-address-results" hidden></div>';
     document.body.appendChild(wrap);
     const input=document.getElementById('fcAddressInput');
     input.addEventListener('input',()=>{clearTimeout(timer);if(input.value.trim().length<3){hideResults();return}timer=setTimeout(()=>runSearch(false),360)});
