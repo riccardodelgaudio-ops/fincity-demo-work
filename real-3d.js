@@ -59,8 +59,8 @@
 
   function setupPanel(){
     const existing=getKey();
-    openPanel('<div class="eyebrow">REAL 3D · GOOGLE + CESIUM</div><h2>Photorealistisches 3D aktivieren</h2>'+
-      '<div class="card"><strong>Google Maps API-Key</strong><div class="note">Für Googles photorealistische 3D-Tiles braucht FinCity einen Google-Maps-API-Key mit aktivierter <b>Map Tiles API</b>. Der Key wird auf diesem Gerät lokal gespeichert.</div>'+
+    openPanel('<div class="eyebrow">REAL 3D · EINMALIGE EINRICHTUNG</div><h2>REAL 3D aktivieren</h2>'+
+      '<div class="card"><strong>Google Maps API-Key</strong><div class="note">Für die photorealistischen Google-3D-Gebäude fehlt noch der Map-Tiles-API-Key. Bis er hinterlegt ist, bleibt die bisherige 3D-Karte normal sichtbar.</div>'+
       '<input id="fc3dKey" class="fc-input" type="password" autocomplete="off" placeholder="AIza…" value="'+(existing?existing.replace(/./g,'•'):'')+'">'+
       '<button class="action" id="fc3dSave">KEY SPEICHERN & REAL 3D STARTEN</button></div>'+
       '<div class="card"><strong>Sicher konfigurieren</strong><div class="note">Den Key in Google Cloud auf diese Website und auf die Map Tiles API beschränken. Keine geheimen Server-Schlüssel hier eintragen.</div></div>');
@@ -184,10 +184,16 @@
 
   async function enterReal3d(){
     ensureDom();
-    document.body.classList.add('fc-real3d-required');
     if(loading)return;
     const key=await resolveKey();
-    if(!key){setupPanel();return}
+    if(!key){
+      active=false;
+      document.body.classList.remove('fc-real3d-active','fc-real3d-required');
+      if($('fcReal3d'))$('fcReal3d').hidden=true;
+      setupPanel();
+      return;
+    }
+    document.body.classList.add('fc-real3d-required');
     loading=true;
     try{
       $('fcReal3d').hidden=false;showStatus('REAL 3D wird geladen …');
@@ -199,6 +205,7 @@
     }catch(e){
       console.warn('FinCity REAL 3D',e);
       $('fcReal3d').hidden=true;active=false;
+      document.body.classList.remove('fc-real3d-active','fc-real3d-required');
       if(String(e?.message||e)==='NO_KEY')setupPanel();
       else openPanel('<div class="eyebrow">REAL 3D</div><h2>3D konnte nicht geladen werden</h2><div class="card"><div class="note">Bitte prüfen, ob die Google <b>Map Tiles API</b> aktiviert ist, der API-Key für diese Domain freigegeben ist und für Photorealistic 3D Tiles berechtigt ist.</div></div><button class="action" id="fc3dRetry">NOCHMALS VERSUCHEN</button><button class="action secondary" id="fc3dChange">API-KEY ÄNDERN</button>');
       const r=$('fc3dRetry');if(r)r.onclick=()=>{viewer=null;tileset=null;loaded=false;enterReal3d()};
@@ -212,7 +219,6 @@
 
   function install(){
     ensureDom();
-    document.body.classList.add('fc-real3d-required');
     document.querySelectorAll('.filter').forEach(btn=>btn.addEventListener('click',()=>{
       currentFilter=btn.dataset.filter||'all';
       if(active)syncEntities();
@@ -238,7 +244,6 @@
     .fc-real3d-badge{position:absolute;left:176px;bottom:19px;z-index:2;padding:7px 10px;border-radius:10px;background:rgba(7,12,22,.82);border:1px solid #38445c;color:#dfe6f4;font-size:7px;font-weight:900;letter-spacing:.08em;backdrop-filter:blur(12px)}
     .fc-real3d-status{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;padding:11px 14px;border-radius:12px;background:rgba(7,12,22,.9);border:1px solid #46536b;color:#fff;font-size:9px}.fc-real3d-status.error{border-color:#9b4050;color:#ffd7de}
     body.fc-real3d-required .map-controls{display:none!important}
-    body.fc-real3d-required #map{filter:brightness(.35);opacity:.28}
     body.fc-real3d-active #map{visibility:hidden}
     body.fc-real3d-active .legend{z-index:25}body.fc-real3d-active .side-nav,body.fc-real3d-active .filters,body.fc-real3d-active .topbar,body.fc-real3d-active #fcAddressSearch{z-index:30}
     body.fc-real3d-active .panel{z-index:40}
