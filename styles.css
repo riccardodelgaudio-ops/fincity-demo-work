@@ -140,3 +140,27 @@ body:not(.fc-real3d-active) .map-controls{display:flex!important}
     max-height:calc(100vh - 186px)!important;
   }
 }
+
+/* Final mobile spacing: address search above filters, never overlapping */
+@media(max-width:760px){
+  .fc-address-search{
+    top:84px!important;
+    height:38px!important;
+  }
+  .fc-address-search form{
+    height:38px!important;
+  }
+  .filters{
+    top:134px!important;
+    margin-top:0!important;
+  }
+  .panel{
+    top:180px!important;
+    max-height:calc(100vh - 194px)!important;
+  }
+}
+@media(max-width:480px){
+  .fc-address-search{top:84px!important}
+  .filters{top:134px!important}
+  .panel{top:180px!important;max-height:calc(100vh - 194px)!important}
+}
