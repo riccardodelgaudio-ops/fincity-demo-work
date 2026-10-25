@@ -26,7 +26,7 @@
   function swissimageEmbed(lon,lat){
     const [e,n]=wgs84ToLv95(lon,lat);
     const c=e.toFixed(1)+','+n.toFixed(1);
-    return 'https://map.geo.admin.ch/#/embed?lang=de&center='+c+'&z=13&topic=ech&layers=ch.swisstopo.swissimage-product&bgLayer=voidLayer&crosshair=marker,'+c+'&noSimpleZoom=true';
+    return 'https://map.geo.admin.ch/#/embed?lang=de&center='+c+'&z=13&topic=ech&layers=ch.swisstopo.swissimage-product&crosshair=marker,'+c+'&noSimpleZoom=true';
   }
   function streetViewUrl(lon,lat){
     return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+encodeURIComponent(lat+','+lon)+'&fov=80';
