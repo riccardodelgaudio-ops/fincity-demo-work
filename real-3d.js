@@ -18,6 +18,14 @@
     return String(k||'').trim();
   }
   function saveKey(k){try{localStorage.setItem(KEY_STORAGE,String(k||'').trim())}catch(e){}}
+  async function resolveKey(){
+    let k=getKey();if(k)return k;
+    try{
+      const r=await fetch('/api/google-3d-config',{cache:'no-store'});
+      if(r.ok){const j=await r.json();k=String(j.key||'').trim();if(k)saveKey(k)}
+    }catch(e){}
+    return k;
+  }
 
   function loadCesium(){
     if(window.Cesium)return Promise.resolve(window.Cesium);
@@ -70,7 +78,7 @@
 
   async function initViewer(){
     if(viewer&&tileset)return;
-    const key=getKey();if(!key)throw new Error('NO_KEY');
+    const key=await resolveKey();if(!key)throw new Error('NO_KEY');
     const Cesium=await loadCesium();
     Cesium.GoogleMaps.defaultApiKey=key;
     viewer=new Cesium.Viewer('fcCesium',{
@@ -156,8 +164,9 @@
 
   async function enterReal3d(){
     ensureDom();
-    if(!getKey()){setupPanel();return}
     if(loading)return;
+    const key=await resolveKey();
+    if(!key){setupPanel();return}
     loading=true;
     try{
       $('fcReal3d').hidden=false;showStatus('REAL 3D wird geladen …');
