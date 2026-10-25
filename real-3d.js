@@ -47,13 +47,8 @@
   function ensureDom(){
     if($('fcReal3d'))return;
     const wrap=document.createElement('div');wrap.id='fcReal3d';wrap.className='fc-real3d';wrap.hidden=true;
-    wrap.innerHTML='<div id="fcCesium" class="fc-cesium"></div><div class="fc-real3d-badge">REAL 3D · GOOGLE PHOTOREALISTIC</div><button id="fcReal3dExit" class="fc-real3d-exit">← STADTKARTE</button><div id="fcReal3dStatus" class="fc-real3d-status" hidden></div>';
+    wrap.innerHTML='<div id="fcCesium" class="fc-cesium"></div><div class="fc-real3d-badge">REAL 3D · GOOGLE PHOTOREALISTIC</div><div id="fcReal3dStatus" class="fc-real3d-status" hidden></div>';
     document.body.appendChild(wrap);
-    $('fcReal3dExit').onclick=()=>exitReal3d();
-    const controls=document.querySelector('.map-controls');
-    if(controls&&!$('real3dBtn')){
-      const b=document.createElement('button');b.id='real3dBtn';b.textContent='REAL 3D';b.onclick=()=>enterReal3d();controls.prepend(b);
-    }
   }
 
   function showStatus(msg,error=false){
@@ -125,6 +120,15 @@
     return C.Color.fromCssColorString('#7b55ee');
   }
 
+  let currentFilter='all';
+  function filterAllows(type){
+    if(currentFilter==='all')return true;
+    if(currentFilter==='owned')return type==='owned';
+    if(currentFilter==='active')return type==='active'||type==='owned';
+    if(currentFilter==='auction')return type==='auction';
+    if(currentFilter==='trophy')return type==='trophy';
+    return true;
+  }
   function syncEntities(){
     if(!viewer||!window.Cesium)return;
     viewer.entities.removeAll();
@@ -147,23 +151,28 @@
           disableDepthTestDistance:Number.POSITIVE_INFINITY
         }
       });
-      ent._fcId=p.id;ent._fcType=p._fcType;
+      ent._fcId=p.id;ent._fcType=p._fcType;ent.show=filterAllows(p._fcType);
     });
   }
 
+  function flyToCoordinates(lon,lat,height=420){
+    if(!viewer||!window.Cesium)return;
+    viewer.camera.flyTo({
+      destination:Cesium.Cartesian3.fromDegrees(Number(lon),Number(lat),height),
+      orientation:{heading:Cesium.Math.toRadians(-18),pitch:Cesium.Math.toRadians(-42),roll:0},
+      duration:1.05
+    });
+  }
+  window.flyFinCityReal3dTo=flyToCoordinates;
+  window.isFinCityReal3dActive=()=>active;
   function flyToCity(){
     if(!viewer||!window.Cesium)return;
-    const c=city();
-    const destination=Cesium.Cartesian3.fromDegrees(c.center[0],c.center[1],1050);
-    viewer.camera.flyTo({
-      destination,
-      orientation:{heading:Cesium.Math.toRadians(-18),pitch:Cesium.Math.toRadians(-38),roll:0},
-      duration:1.2
-    });
+    const c=city();flyToCoordinates(c.center[0],c.center[1],1050);
   }
 
   async function enterReal3d(){
     ensureDom();
+    document.body.classList.add('fc-real3d-required');
     if(loading)return;
     const key=await resolveKey();
     if(!key){setupPanel();return}
@@ -173,7 +182,6 @@
       await initViewer();
       active=true;
       document.body.classList.add('fc-real3d-active');
-      document.querySelectorAll('.map-controls button').forEach(b=>b.classList.toggle('active',b.id==='real3dBtn'));
       syncEntities();flyToCity();showStatus('');
       try{closePanel()}catch(e){}
     }catch(e){
@@ -187,15 +195,16 @@
   }
   window.enterFinCityReal3d=enterReal3d;
 
-  function exitReal3d(){
-    active=false;document.body.classList.remove('fc-real3d-active');
-    if($('fcReal3d'))$('fcReal3d').hidden=true;
-    const invest=$('investMapBtn');if(invest)invest.click();
-  }
+  function exitReal3d(){if(active)flyToCity()}
   window.exitFinCityReal3d=exitReal3d;
 
   function install(){
     ensureDom();
+    document.body.classList.add('fc-real3d-required');
+    document.querySelectorAll('.filter').forEach(btn=>btn.addEventListener('click',()=>{
+      currentFilter=btn.dataset.filter||'all';
+      if(active)syncEntities();
+    }));
     const oldSwitch=window.switchCity;
     if(typeof oldSwitch==='function')window.switchCity=function(slug,showOverview){
       const r=oldSwitch(slug,showOverview);
@@ -208,18 +217,21 @@
       if(active)setTimeout(syncEntities,120);
       return r;
     };
+    setTimeout(()=>enterReal3d(),220);
   }
 
   const css=document.createElement('style');
   css.textContent=`
     .fc-real3d{position:fixed;inset:0;z-index:18;background:#07101b}.fc-cesium{position:absolute;inset:0}.fc-real3d[hidden]{display:none!important}
     .fc-real3d-badge{position:absolute;left:176px;bottom:19px;z-index:2;padding:7px 10px;border-radius:10px;background:rgba(7,12,22,.82);border:1px solid #38445c;color:#dfe6f4;font-size:7px;font-weight:900;letter-spacing:.08em;backdrop-filter:blur(12px)}
-    .fc-real3d-exit{position:absolute;right:18px;bottom:18px;z-index:2;border:1px solid #5d49a7;background:#17142d;color:#fff;border-radius:12px;padding:10px 12px;font-size:8px;font-weight:900}
     .fc-real3d-status{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;padding:11px 14px;border-radius:12px;background:rgba(7,12,22,.9);border:1px solid #46536b;color:#fff;font-size:9px}.fc-real3d-status.error{border-color:#9b4050;color:#ffd7de}
-    body.fc-real3d-active #map{visibility:hidden}body.fc-real3d-active .legend{z-index:25}body.fc-real3d-active .side-nav,body.fc-real3d-active .map-controls,body.fc-real3d-active .filters,body.fc-real3d-active .topbar,body.fc-real3d-active #fcAddressSearch{z-index:30}
+    body.fc-real3d-required .map-controls{display:none!important}
+    body.fc-real3d-required #map{filter:brightness(.35);opacity:.28}
+    body.fc-real3d-active #map{visibility:hidden}
+    body.fc-real3d-active .legend{z-index:25}body.fc-real3d-active .side-nav,body.fc-real3d-active .filters,body.fc-real3d-active .topbar,body.fc-real3d-active #fcAddressSearch{z-index:30}
     body.fc-real3d-active .panel{z-index:40}
     .cesium-widget-credits{font-size:6px!important;max-width:70vw!important}
-    @media(max-width:760px){.fc-real3d-badge{left:166px;bottom:13px}.fc-real3d-exit{right:10px;bottom:10px}.cesium-viewer-bottom{left:155px!important}}
+    @media(max-width:760px){.fc-real3d-badge{left:166px;bottom:13px}.cesium-viewer-bottom{left:155px!important}}
   `;
   document.head.appendChild(css);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
