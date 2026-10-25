@@ -164,3 +164,67 @@ body:not(.fc-real3d-active) .map-controls{display:flex!important}
   .filters{top:134px!important}
   .panel{top:180px!important;max-height:calc(100vh - 194px)!important}
 }
+
+/* Responsive map-mode switch: keep portrait header clean */
+.map-controls{
+  z-index:455!important;
+}
+@media (max-width:760px) and (orientation:portrait){
+  .map-controls,
+  body:not(.fc-real3d-active) .map-controls{
+    display:flex!important;
+    position:fixed!important;
+    top:auto!important;
+    left:auto!important;
+    right:10px!important;
+    bottom:58px!important;
+    width:auto!important;
+    grid-template-columns:none!important;
+    gap:5px!important;
+    padding:5px!important;
+    border:1px solid rgba(67,79,103,.9)!important;
+    border-radius:14px!important;
+    background:rgba(8,13,24,.88)!important;
+    backdrop-filter:blur(14px)!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.28)!important;
+  }
+  .map-controls button{
+    width:auto!important;
+    min-width:0!important;
+    height:34px!important;
+    padding:0 10px!important;
+    border-radius:10px!important;
+    font-size:7px!important;
+    letter-spacing:.06em!important;
+    white-space:nowrap!important;
+  }
+  .map-controls #mapBtn{display:none!important}
+  .fc-address-search{
+    top:84px!important;
+    left:90px!important;
+    right:8px!important;
+  }
+  .filters{
+    top:134px!important;
+    left:90px!important;
+    right:8px!important;
+  }
+  .legend{
+    left:88px!important;
+    right:8px!important;
+    bottom:8px!important;
+    padding-right:150px!important;
+  }
+}
+@media (min-width:761px), (orientation:landscape){
+  body:not(.fc-real3d-active) .map-controls{
+    display:flex!important;
+    position:fixed!important;
+    top:92px!important;
+    right:18px!important;
+    left:auto!important;
+    bottom:auto!important;
+    gap:7px!important;
+    width:auto!important;
+  }
+}
