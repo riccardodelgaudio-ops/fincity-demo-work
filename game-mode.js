@@ -26,17 +26,43 @@
     d.setDate(d.getDate()-(d.getDay()+6)%7);
     return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
   }
-  function startPrice(units){return units<=4?100:units<=10?200:units<=20?250:300}
+  // Auktionsstartpreise hängen nur von der Gebäudegrösse ab.
+  const SIZE_TIERS=[
+    {key:"small",label:"Klein",maxM2:120,price:100},
+    {key:"compact",label:"Kompakt",maxM2:250,price:200},
+    {key:"medium",label:"Mittel",maxM2:500,price:300},
+    {key:"large",label:"Gross",maxM2:900,price:400},
+    {key:"xlarge",label:"Sehr gross",maxM2:Infinity,price:500}
+  ];
+  function areaM2(obj){
+    const raw=obj?.raw||{};
+    const value=[obj?.groundAreaM2,obj?.sizeM2,obj?.garea,raw.garea,raw.GAREA]
+      .map(Number).find(n=>Number.isFinite(n)&&n>=20&&n<=20000);
+    return value?Math.round(value):null;
+  }
+  function sizeInfo(obj){
+    const sqm=areaM2(obj);
+    const tier=sqm?SIZE_TIERS.find(t=>sqm<=t.maxM2):SIZE_TIERS.find(t=>t.key===obj?.sizeClass);
+    const verified=Boolean(sqm&&obj?.areaSource==="official");
+    return {price:tier?.price||100,label:tier?.label||"Noch nicht bestimmt",
+      areaM2:sqm,verified,known:Boolean(tier),source:sqm?(verified?"amtlich":"geschätzt"):(tier?"Demo-Einstufung":"unbekannt")};
+  }
+  function sizeSummary(obj){
+    const s=sizeInfo(obj);
+    return s.areaM2?`${s.label} · ${s.areaM2.toLocaleString("de-CH")} m² Grundfläche (${s.source})`:
+      s.known?`${s.label} · Demo-Grössenklasse`:"Gebäudegrösse noch nicht bestimmt";
+  }
+  window.finCitySizeInfo=sizeInfo;
   function convertBuilding(p){
     return {id:p.id,name:p.name,holder:p.holder||USER,kind:p.kind,lng:p.lng,lat:p.lat,
       address:p.address||"Standort auf der Karte · Adresse noch nicht verifiziert",
-      units:int(p.slots)||null,lastAuctionPrice:int(p.lastAuctionPrice),
+      sizeM2:areaM2(p),sizeClass:p.sizeClass||null,areaSource:p.areaSource||"demo",lastAuctionPrice:int(p.lastAuctionPrice),
       lastAuctionDate:p.lastAuctionDate||"Demo-Historie",historical:true};
   }
   function convertDrop(a,i){
     return {id:a.id,name:a.name,address:a.address||"Standort auf der Karte · Adresse wird verifiziert",
-      lng:a.lng,lat:a.lat,units:int(a.slots)||null,
-      sizeM2:int(a.sizeM2)||null,startingBid:startPrice(int(a.slots)||4),
+      lng:a.lng,lat:a.lat,sizeM2:areaM2(a),sizeClass:a.sizeClass||null,
+      areaSource:a.areaSource||"demo",startingBid:sizeInfo(a).price,
       status:i===0?"live":"planned",startedWeek:i===0?weekKey():null,
       startedAt:i===0?new Date().toISOString():null,
       endsAt:i===0?new Date(Date.now()+AUCTION_DURATION_MS).toISOString():null,
@@ -67,6 +93,17 @@
       a.endsAt=new Date(start+AUCTION_DURATION_MS).toISOString();
       migrated=true;
     }
+    // Lokale alte Spielstände weiter nutzen, ohne laufende Gebote neu zu bepreisen.
+    for(const a of c.drops){
+      const demo=auctions.find(seed=>String(seed.id)===String(a.id));
+      if(!a.sizeClass&&!areaM2(a)&&demo?.sizeClass){a.sizeClass=demo.sizeClass;migrated=true}
+      if(a.units!==undefined){delete a.units;migrated=true}
+      if(a.status==="planned"&&!a.seller&&!(a.bids?.length)&&sizeInfo(a).known&&a.startingBid!==sizeInfo(a).price){
+        a.startingBid=sizeInfo(a).price;migrated=true;
+      }
+    }
+    for(const b of c.buildings)if(b.units!==undefined){delete b.units;migrated=true}
+    for(const r of c.requests)if(r.units!==undefined){delete r.units;migrated=true}
     if(migrated)save();
     return c;
   }
@@ -136,10 +173,10 @@
   function syncMap(){
     const c=ensureCity();
     investment.splice(0,investment.length,...c.buildings.map(b=>({
-      ...b,slots:b.units||0,occupied:0,kind:b.holder===USER?"owned":"active"
+      ...b,slots:0,occupied:0,kind:b.holder===USER?"owned":"active"
     })));
     auctions.splice(0,auctions.length,...c.drops.filter(a=>a.status==="live"||a.status==="planned").map(a=>({
-      ...a,slots:a.units||0
+      ...a,slots:0
     })));
     try{window.refreshFinCityMapData?.()}catch(e){}
     updateHeader();
@@ -194,7 +231,7 @@
       const label=ended?"⏱ ABGELAUFEN":a.status==="live"?"🔴 LIVE":a.status==="planned"?"⏳ GEPLANT":a.status==="sold"?"✓ VERKAUFT":"BEENDET";
       return `<div class="active-row fc-auction-row fc-click" data-auction="${esc(a.id)}"><div class="fc-auction-row-info"><strong>${esc(a.name)}</strong>
         <div class="rankmeta">${esc(a.address)}</div>
-        <div class="rankmeta">${a.units??"–"} Wohneinheiten (nur Grösse) · ${a.sizeM2?`${a.sizeM2} m²`:"m² unbekannt"} · <span data-fc-live-status>${label}</span></div></div>
+        <div class="rankmeta">${esc(sizeSummary(a))} · <span data-fc-live-status>${label}</span></div></div>
         <div class="fc-pricecol"><div class="eyebrow">${top?"HÖCHSTGEBOT":"STARTPREIS"}</div><div class="price">${money(top?.amount||a.startingBid)}</div></div>
         ${countdownMarkup(a)}</div>`;
     }).join("");
@@ -219,7 +256,10 @@
       ${flash?`<div class="fc-flash" role="status">${esc(flash)}</div>`:""}
       ${countdownMarkup(a,"detail")}
       <div class="card"><div class="previewrow"><span>Standort</span><b>${esc(a.address)}</b></div>
+        <div class="previewrow"><span>Gebäudegrösse</span><b>${esc(sizeSummary(a))}</b></div>
         <div class="previewrow"><span>Startpreis</span><b>${money(a.startingBid)}</b></div>
+        ${a.status==="planned"?`<div class="previewrow"><span>Grössenbasierter Preisvorschlag</span><b>${money(sizeInfo(a).price)}</b></div>`:""}
+        <p class="note">CHF 100–500 nach Gebäudegrösse. Nur ein Startpreis für das digitale Spielgebäude, keine Bewertung der echten Immobilie.</p>
         <div class="previewrow"><span>Status</span><b id="fcAuctionStatus">${ended?"Auktion abgelaufen · Auswertung folgt":a.status==="live"?"Auktion läuft":a.status==="planned"?"Noch nicht freigegeben":a.status==="sold"?"Verkauft":"Beendet"}</b></div>
         ${a.seller?`<div class="previewrow"><span>Verkäufer</span><b>${esc(a.seller)}</b></div>`:""}
       </div>
@@ -270,7 +310,7 @@
       if(b){b.holder=top.user;b.lastAuctionPrice=top.amount;b.lastAuctionDate=new Date().toLocaleDateString("de-CH");b.previousPrice=previousPrice;b.kind=b.holder===USER?"owned":"active"}
     }else{
       c.buildings.push({id:a.id,name:a.name,holder:top.user,kind:top.user===USER?"owned":"active",
-        lng:a.lng,lat:a.lat,address:a.address,units:a.units,
+        lng:a.lng,lat:a.lat,address:a.address,sizeM2:areaM2(a),sizeClass:a.sizeClass||null,areaSource:a.areaSource||"demo",
         lastAuctionPrice:top.amount,lastAuctionDate:new Date().toLocaleDateString("de-CH"),historical:false});
     }
     game.transactions.push({type:"purchase",amount:-top.amount,title:a.name,at:record.at});
@@ -317,7 +357,8 @@
     if(c.drops.some(a=>String(a.propertyId)===String(b.id)&&["live","planned"].includes(a.status)))return showBuilding(id,"Dieses Gebäude ist bereits für eine Auktion vorgemerkt.");
     const auctionId=`resale-${Date.now()}-${b.id}`;
     c.drops.push({id:auctionId,name:b.name,address:b.address,lng:b.lng,lat:b.lat,
-      units:b.units,startingBid:price,status:"planned",startedWeek:null,bids:[],
+      sizeM2:areaM2(b),sizeClass:b.sizeClass||null,areaSource:b.areaSource||"demo",
+      startingBid:price,status:"planned",startedWeek:null,bids:[],
       seller:USER,propertyId:b.id,date:"Bereit für Spielrunde"});
     save();syncMap();showBuilding(id,"Für die nächste Auktion vorgemerkt.");
   }
@@ -419,8 +460,9 @@ function proposeBuilding(obj){
   const key=obj.egid?`egid-${String(obj.egid).replace(/[^a-z0-9-]/gi,"")}`:`coord-${lng.toFixed(5)}-${lat.toFixed(5)}`;
   if(c.requests.some(r=>r.key===key)||c.drops.some(d=>String(d.requestKey)===key))return {ok:false,message:"Dieser Standort ist bereits für einen digitalen City Drop vorgemerkt."};
   const address=String(obj.address||"Kartenstandort noch ohne Adresse").slice(0,240);
-  const units=Number.isSafeInteger(Number(obj.units))&&Number(obj.units)>0?int(obj.units):null;
-  c.requests.push({key,name:address,address,lng,lat,units,egid:obj.egid||null,official:Boolean(obj.official),createdAt:new Date().toISOString(),by:USER});
+  c.requests.push({key,name:address,address,lng,lat,sizeM2:areaM2(obj),
+    sizeClass:obj.sizeClass||null,areaSource:obj.areaSource||"demo",
+    egid:obj.egid||null,official:Boolean(obj.official),createdAt:new Date().toISOString(),by:USER});
   save();
   return {ok:true,message:"Digitaler Auktionsvorschlag vorgemerkt. Nur Admins können ihn freigeben."};
 }
@@ -428,7 +470,7 @@ function proposeBuilding(obj){
   return `<div class="card"><strong>Karten-Anfragen (${c.requests.length})</strong>
     <p class="note">Spieler können reale Kartenstandorte vorschlagen. Diese Demo prüft Berechtigungen und Adressen nicht automatisch. Zur Veröffentlichung müssen reale Gebäudeidentität und Spielregeln geprüft werden.</p>
     ${c.requests.map(r=>`<div class="owned-row">
-      <span><strong>${esc(r.name)}</strong><div class="rankmeta">${r.units??"?"} Wohneinheiten · ${r.official?"GWR-Treffer (Demo)":"Adresse noch zu prüfen"}</div></span>
+      <span><strong>${esc(r.name)}</strong><div class="rankmeta">${esc(sizeSummary(r))} · ${r.official?"GWR-Treffer (Demo)":"Adresse noch zu prüfen"}</div></span>
       <button class="fc-small" data-approve="${esc(r.key)}">ÜBERNEHMEN</button>
     </div>`).join("")||'<p class="note">Derzeit keine offenen Anfragen.</p>'}</div>`;
 }
@@ -439,7 +481,8 @@ function proposeBuilding(obj){
   if(c.drops.some(a=>a.requestKey===key))return showAdmin("Objekt ist bereits vorgemerkt.");
   const id=`proposal-${req.key}`;
   c.drops.push({id,requestKey:key,name:req.name,address:req.address,lng:req.lng,lat:req.lat,
-    units:req.units,sizeM2:null,startingBid:startPrice(req.units||4),status:"planned",
+    sizeM2:areaM2(req),sizeClass:req.sizeClass||null,areaSource:req.areaSource||"demo",
+    startingBid:sizeInfo(req).price,status:"planned",
     startedWeek:null,bids:[],seller:null,propertyId:null,date:"Bereit für Spielrunde",
     verified:req.official});
   c.requests=c.requests.filter(r=>r.key!==key);

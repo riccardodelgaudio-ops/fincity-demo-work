@@ -54,7 +54,7 @@
 
   function makeAuctions(city,index){
     const base=(index+1)*1000+100;const os=[[.003,-.004],[-.0045,.0015],[.006,.004],[-.006,-.0045]];
-    return os.map((o,i)=>({id:base+i+1,name:`${city.name} City Drop ${i+1}`,address:`${city.name} · Adresse wird verifiziert`,slots:[4,8,10,16][i],lng:city.center[0]+o[0],lat:city.center[1]+o[1],date:'Freitag · 20:00 Uhr'}));
+    return os.map((o,i)=>({id:base+i+1,name:`${city.name} City Drop ${i+1}`,address:`${city.name} · Adresse wird verifiziert`,slots:[4,8,10,16][i],sizeClass:['small','medium','large','xlarge'][i],lng:city.center[0]+o[0],lat:city.center[1]+o[1],date:'Freitag · 20:00 Uhr'}));
   }
 
   function makeTrophies(city,index){
@@ -129,7 +129,7 @@
   window.showCity=function(){renderCityOverview()};
   window.showAuctions=function(){
     activeNav('auctions');
-    openPanel(`<div class="eyebrow">CITY DROPS · ${current.name.toUpperCase()}</div><h2>Auktionen · ${current.name}</h2><p class="note">Nur Auktionen dieses Stadtmarkts. Adressen werden für die Demo per Karten-/Gebäudedaten ergänzt und vor einer echten Freischaltung offiziell verifiziert.</p><div class="active-list">${auctions.map(a=>`<div class="active-row" data-auction="${a.id}"><div><strong>${a.name}</strong><div class="rankmeta">${a.address}</div><div class="rankmeta">${a.slots} Wohnungen / Slots · ${a.date}</div></div><div style="text-align:right"><div class="eyebrow">START</div><div class="price">${chf(startPrice(a.slots))}</div></div></div>`).join('')}</div>`);
+    openPanel(`<div class="eyebrow">CITY DROPS · ${current.name.toUpperCase()}</div><h2>Auktionen · ${current.name}</h2><p class="note">Nur Auktionen dieses Stadtmarkts. Adressen werden für die Demo per Karten-/Gebäudedaten ergänzt und vor einer echten Freischaltung offiziell verifiziert.</p><div class="active-list">${auctions.map(a=>`<div class="active-row" data-auction="${a.id}"><div><strong>${a.name}</strong><div class="rankmeta">${a.address}</div><div class="rankmeta">${a.date}</div></div><div style="text-align:right"><div class="eyebrow">START</div><div class="price">${chf(window.finCitySizeInfo?.(a)?.price||100)}</div></div></div>`).join('')}</div>`);
     panel.querySelectorAll('[data-auction]').forEach(el=>el.onclick=()=>showAuction(+el.dataset.auction));
   };
 

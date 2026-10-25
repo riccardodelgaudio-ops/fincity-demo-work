@@ -70,7 +70,6 @@
     add('Renovation',pick(a,'grenj','GRENJ'));
     let n=Number(pick(a,'garea','GAREA'));if(n>0)add('Grundfläche',Math.round(n).toLocaleString('de-CH')+' m²');
     n=Number(pick(a,'gastw','GASTW'));if(n>0)add('Geschosse',Math.round(n));
-    n=Number(pick(a,'ganzwhg','GANZWHG'));if(n>=0)add('Wohnungen',Math.round(n));
     add('Parzelle',pick(a,'gparz','GPARZ'));
     add('EGRID',pick(a,'gegrid','GEGRID'));
     add('Gebäudenummer',pick(a,'gebnr','GEBNR'));

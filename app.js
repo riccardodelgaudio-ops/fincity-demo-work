@@ -17,11 +17,11 @@ const investment=[
 {id:15,name:'Mein Gebäude · Wollishofen',holder:'@MyFinCity',ret:18.7,risk:2,lng:8.5330,lat:47.3376,kind:'owned',allocation:[45,30,15,10],slots:5,occupied:3,lastAuctionPrice:410,lastAuctionDate:'26.06.2026'}
 ];
 const auctions=[
-{id:101,name:'Enge Stadthaus',address:'Bederstrasse 77, 8002 Zürich',slots:4,lng:8.5272,lat:47.3617,date:'Freitag · 20:00 Uhr'},
-{id:102,name:'Wiedikon Wohnhaus',address:'Birmensdorferstrasse 241, 8003 Zürich',slots:8,lng:8.5088,lat:47.3714,date:'Freitag · 20:00 Uhr'},
-{id:103,name:'Oerlikon Wohnhaus',address:'Schaffhauserstrasse 355, 8050 Zürich',slots:10,lng:8.5433,lat:47.4098,date:'Freitag · 20:00 Uhr'},
-{id:104,name:'Altstetten Wohnblock',address:'Badenerstrasse 681, 8048 Zürich',slots:16,lng:8.4838,lat:47.3827,date:'Freitag · 20:00 Uhr'},
-{id:105,name:'Aussersihl Wohnblock',address:'Hohlstrasse 217, 8004 Zürich',slots:24,lng:8.5202,lat:47.3813,date:'Freitag · 20:00 Uhr'}
+{id:101,name:'Enge Stadthaus',address:'Bederstrasse 77, 8002 Zürich',slots:4,sizeClass:'small',lng:8.5272,lat:47.3617,date:'Freitag · 20:00 Uhr'},
+{id:102,name:'Wiedikon Wohnhaus',address:'Birmensdorferstrasse 241, 8003 Zürich',slots:8,sizeClass:'medium',lng:8.5088,lat:47.3714,date:'Freitag · 20:00 Uhr'},
+{id:103,name:'Oerlikon Wohnhaus',address:'Schaffhauserstrasse 355, 8050 Zürich',slots:10,sizeClass:'medium',lng:8.5433,lat:47.4098,date:'Freitag · 20:00 Uhr'},
+{id:104,name:'Altstetten Wohnblock',address:'Badenerstrasse 681, 8048 Zürich',slots:16,sizeClass:'large',lng:8.4838,lat:47.3827,date:'Freitag · 20:00 Uhr'},
+{id:105,name:'Aussersihl Wohnblock',address:'Hohlstrasse 217, 8004 Zürich',slots:24,sizeClass:'xlarge',lng:8.5202,lat:47.3813,date:'Freitag · 20:00 Uhr'}
 ];
 const trophies=[
 {id:201,name:'Grossmünster',subtype:'Wahrzeichen',lng:8.5441,lat:47.3701,champion:{year:2027,user:'@LakeAlpha'}},

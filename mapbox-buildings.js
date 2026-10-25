@@ -18,6 +18,29 @@
     return isFinite(minX)?[(minX+maxX)/2,(minY+maxY)/2]:fallback;
   }
 
+  function footprintAreaM2(geometry){
+    if(!geometry||!["Polygon","MultiPolygon"].includes(geometry.type))return null;
+    const polygons=geometry.type==="Polygon"?[geometry.coordinates]:geometry.coordinates;
+    function ringArea(ring){
+      if(!Array.isArray(ring)||ring.length<3)return 0;
+      const lat0=ring.reduce((s,p)=>s+Number(p[1]||0),0)/ring.length;
+      const mx=111320*Math.cos(lat0*Math.PI/180),my=111320;
+      let sum=0;
+      for(let i=0;i<ring.length;i++){
+        const a=ring[i],b=ring[(i+1)%ring.length];
+        sum+=(a[0]*mx)*(b[1]*my)-(b[0]*mx)*(a[1]*my);
+      }
+      return Math.abs(sum)/2;
+    }
+    let area=0;
+    for(const rings of polygons){
+      if(!rings?.length)continue;
+      area+=ringArea(rings[0]);
+      for(let i=1;i<rings.length;i++)area-=ringArea(rings[i]);
+    }
+    return Number.isFinite(area)&&area>=20&&area<=20000?Math.round(area):null;
+  }
+
   function knownObjectAt(point){
     const layers=['fincity-owned-hit','fincity-active-hit','fincity-auction-hit','fincity-trophy-hit'].filter(id=>map.getLayer(id));
     if(!layers.length||!point)return false;
@@ -50,7 +73,8 @@
         if(selected)try{map.setFeatureState(selected,{select:false})}catch(err){}
         selected=e.feature;try{map.setFeatureState(e.feature,{select:true})}catch(err){}
         const c=centerOfGeometry(e.feature?.geometry,[e.lngLat.lng,e.lngLat.lat]);
-        if(typeof window.openGenericBuildingFromCoordinates==='function')window.openGenericBuildingFromCoordinates(c[0],c[1]);
+        if(typeof window.openGenericBuildingFromCoordinates==='function')
+          window.openGenericBuildingFromCoordinates(c[0],c[1],{sizeM2:footprintAreaM2(e.feature?.geometry),areaSource:"map"});
         return true;
       }});
     }catch(e){console.warn('FinCity Mapbox building interactions',e)}

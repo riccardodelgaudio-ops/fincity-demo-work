@@ -22,15 +22,18 @@ Beispiele: 100 aktive User → 2 Freigaben; 250 → 3; 500 → 4; maximal 10. Da
 
 **Vor echtem Start definieren:** «aktive Stadtspieler» als eindeutige, verifizierte Accounts mit Aktivität in den letzten 7 Tagen; Bot- und Mehrfachaccount-Schutz; mögliche redaktionelle Obergrenze bei Nachfragespitzen und Stadtwechseln.
 
-## Anfangspreise
-| Gebäudegrösse (Wohnungen nur als Grössenmerkmal) | Anfangspreis |
-|---|---:|
-| 1–4 | CHF 100 |
-| 5–10 | CHF 200 |
-| 11–20 | CHF 250 |
-| über 20 | CHF 300 |
+## Anfangspreise (nur digitale Spielgebäude)
+Die **Gebäudegrundfläche** ist für die Preisempfehlung entscheidend, nicht die Anzahl Wohnungen oder Wohneinheiten. Die fünf Stufen sind ein FinCity-Spielvorschlag:
 
-Keine Wohnung wird einzeln vermietet oder gehandelt. Die Fläche in m² wird angezeigt, **sofern verifiziert**; ansonsten «nicht verifiziert». Die realen Kartenstandorte allein sind keine Grundstücksnachweise. Exakte Adressen und Objektverknüpfung im Echtbetrieb über offizielle Gebäude-IDs prüfen.
+| Gebäudegrundfläche | Vorgeschlagener Startpreis |
+|---|---:|
+| bis 120 m² | CHF 100 |
+| 121–250 m² | CHF 200 |
+| 251–500 m² | CHF 300 |
+| 501–900 m² | CHF 400 |
+| über 900 m² | CHF 500 |
+
+Die tatsächliche Grundfläche wird nach Möglichkeit aus dem amtlichen GWR (GAREA) übernommen. Alternativ kann die Karten-Geometrie als **geschätzte Grundfläche** dienen. Seed-Auktionen ohne amtliche Flächendaten nutzen eine als Demo gekennzeichnete Grössenklasse, ebenfalls ohne Bezug zu Wohnungszahlen. Ist die Grösse unbekannt, erscheint nur ein vorläufiger Mindeststartpreis von CHF 100. Bestehende laufende Auktionen behalten ihren ursprünglich ausgewiesenen Startpreis; noch nicht gestartete Demo-Auktionen werden angepasst. Der Betrag ist **keine Bewertung der realen Immobilie**. Echte Gebäude- und Adressverknüpfungen müssen vor einer Veröffentlichung anhand offizieller IDs geprüft werden.
 
 ## Wertanzeige und Ranglisten
 - **Verkaufte Immobilien** = Zahl einzigartiger Spielgebäude mit bestätigtem Verkauf.

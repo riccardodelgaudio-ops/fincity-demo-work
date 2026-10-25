@@ -48,7 +48,9 @@
     const street=a.strname_deinr||a.label||'';
     const plz=String(a.dplz4||a.plz_plz6||'').split('/')[0];
     const town=a.dplzname||a.ggdename||'';
-    return {address:[street,[plz,town].filter(Boolean).join(' ')].filter(Boolean).join(', '),egid:a.egid||a.EGID||null,units:a.ganzwhg??a.GANZWHG??null,official:true,raw:a};
+    return {address:[street,[plz,town].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+      egid:a.egid||a.EGID||null,groundAreaM2:Number(a.garea??a.GAREA)||null,
+      areaSource:"official",official:true,raw:a};
   }
   async function linkedGwr(preferred){
     if(!preferred?.featureId&&!preferred?.gwrLink)return null;
@@ -94,6 +96,8 @@
     const cnt=requestCount(obj);
     const aerial=swissimageEmbed(obj.lon,obj.lat);
     const street=streetViewUrl(obj.lon,obj.lat);
+    const size=window.finCitySizeInfo?.(obj);
+    const formatted=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:"CHF",maximumFractionDigits:0}).format(n);
     openPanel(`
       <div class="eyebrow">FREIES KARTENGEBÄUDE · AUKTIONSANFRAGE</div>
       <h2>${obj.address||'Gebäude'}</h2>
@@ -106,7 +110,10 @@
         <div class="previewrow"><span>Adresse</span><b>${obj.address}</b></div>
         <div class="previewrow"><span>Adressquelle</span><b>${obj.addressSource|| (obj.official?'BUND · GEO.ADMIN.CH':'KARTEN-GEOCODING')}</b></div>
         ${obj.egid?`<div class="previewrow"><span>EGID</span><b>${obj.egid}</b></div>`:''}
-        ${obj.units!==null&&obj.units!==undefined&&obj.units!==''?`<div class="previewrow"><span>Wohneinheiten (Gebäudegrösse)</span><b>${obj.units}</b></div>`:''}
+        <div class="previewrow"><span>Gebäudegrösse</span><b>${size?.label||"Noch nicht bestimmt"}</b></div>
+        ${size?.areaM2?`<div class="previewrow"><span>Grundfläche (${size.source})</span><b>${size.areaM2.toLocaleString("de-CH")} m²</b></div>`:""}
+        <div class="previewrow"><span>Empfohlener Auktionsstart</span><b>${size?.known?formatted(size.price):"ab "+formatted(100)+" (vorläufig)"}</b></div>
+        <p class="note">Spiel-Startpreis von CHF 100–500 abhängig von der Gebäudegrösse. Kein Wert der realen Immobilie.</p>
         <div class="previewrow"><span>Demo-Anfragen auf diesem Gerät</span><b>${cnt}</b></div>
       </div>
       <div class="card"><strong>Noch nicht als digitales Spielgebäude freigeschaltet</strong><div class="note">Diesen Kartenstandort kannst du als digitales FinCity-Spielgebäude für eine Auktion vorschlagen.</div></div>
@@ -156,9 +163,12 @@
     }:null;
     if(!base&&!info)base=await fallbackAddress(lon,lat);
     const merged={...(info||{}),...(base||{}),lon,lat};
-    // The selected/search address is authoritative. GWR only contributes attributes such as EGID/units.
+    // Karten-Footprint ist nur eine Schätzung; amtliche GWR-Grundfläche hat Vorrang.
+    if(Number(preferred?.sizeM2)>0){merged.sizeM2=Number(preferred.sizeM2);merged.areaSource="map"}
     if(preferred?.address)merged.address=preferred.address;
-    if(info){merged.egid=info.egid;merged.units=info.units;merged.raw=info.raw}
+    if(info){merged.egid=info.egid;merged.raw=info.raw;
+      if(Number(info.groundAreaM2)>0){merged.groundAreaM2=info.groundAreaM2;merged.areaSource="official"}
+    }
     showGenericBuilding(merged);
   }
   window.openGenericBuildingFromCoordinates=loadGenericBuilding;
