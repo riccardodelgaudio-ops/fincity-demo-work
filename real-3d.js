@@ -103,11 +103,23 @@
     handler.setInputAction(movement=>{
       const picked=viewer.scene.pick(movement.position);
       const id=picked?.id?._fcId;
-      if(!id)return;
-      const type=picked.id._fcType;
-      if(type==='trophy'&&typeof showTrophy==='function')showTrophy(id);
-      else if(type==='auction'&&typeof showAuction==='function')showAuction(id);
-      else if(typeof showBuilding==='function')showBuilding(id);
+      if(id){
+        const type=picked.id._fcType;
+        if(type==='trophy'&&typeof showTrophy==='function')showTrophy(id);
+        else if(type==='auction'&&typeof showAuction==='function')showAuction(id);
+        else if(typeof showBuilding==='function')showBuilding(id);
+        return;
+      }
+      // A deliberate click on the photorealistic mesh opens that real-world location.
+      if(viewer.scene.pickPositionSupported&&typeof window.openGenericBuildingFromCoordinates==='function'){
+        try{
+          const pos=viewer.scene.pickPosition(movement.position);
+          if(!pos)return;
+          const carto=Cesium.Cartographic.fromCartesian(pos);
+          const lon=Cesium.Math.toDegrees(carto.longitude),lat=Cesium.Math.toDegrees(carto.latitude);
+          if(Number.isFinite(lon)&&Number.isFinite(lat))window.openGenericBuildingFromCoordinates(lon,lat);
+        }catch(e){}
+      }
     },Cesium.ScreenSpaceEventType.LEFT_CLICK);
     loaded=true;
   }
